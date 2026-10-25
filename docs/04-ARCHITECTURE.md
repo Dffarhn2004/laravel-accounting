@@ -3,7 +3,7 @@
 ## Stack decision baseline
 - Laravel **13** (`laravel/framework: ^13.0`), PHP **8.3+**, Composer lockfile.
 - Official Laravel React starter kit: **React 19**, **TypeScript**, **Inertia 3**, **Tailwind CSS 4**, shadcn/ui components. Confirm scaffold package versions at installation.
-- PostgreSQL, Laravel migrations, Policies, Form Requests, queues/jobs, Filesystem. Redis optional.
+- **MySQL/MariaDB as the shared cPanel deployment baseline**; PostgreSQL remains an option for VPS/managed hosting. Migrations and queries should stay compatible with both databases. Laravel migrations, Policies, Form Requests, queues/jobs, Filesystem; Redis optional.
 - Modular monolith (Laravel framework conventions), not microservices.
 
 ## Domain responsibilities
@@ -35,3 +35,5 @@ The reference stores all transactions locally in browser and supports manual bac
 
 ## Engineering standards
 PSR-12/Laravel Pint, static analysis, integration tests, CI; protected env secrets; validation and malware/size controls for evidence; authorization on object fetch and export; performance profiling; backups/restore drills; disaster recovery policy.
+## Hosting decision (2026-10-25)
+Shared **cPanel is a supported deployment target**, provided PHP >=8.3 and required extensions, Composer/vendor installation, safe `public/` document root and writable storage are available. Default Inertia SSR is disabled via `config/inertia.php` and `INERTIA_SSR_ENABLED=false`. Frontend assets are built off-server and uploaded from `public/build`; no Node process on shared hosting. Use `DB_CONNECTION=mysql`, file cache/sessions and sync queue at the beginning. See `docs/09-DEPLOY-CPANEL.md`.

@@ -41,3 +41,6 @@ Use official starter's layouts and auth, shadcn Card/Button/Sidebar/Dialog/Tabs,
 
 ## Acceptance UI checks
 1440px desktop, 768px tablet, 390px mobile; dark/light contrast, keyboard navigation, invoice with 15 products, 20-column report scrolling, authorized export and print output.
+
+## Implemented UI foundation (2026-10-25)
+The official Laravel 13 React starter's authentication/layout components have been imported. `resources/js/pages/dashboard.tsx` presents six **explicitly empty** financial KPI cards, trend/health/integrity areas, branch/budget empty states and shortcuts. `resources/js/components/app-sidebar.tsx` routes to authenticated module placeholder pages for the six PRD categories. No financial calculator or accounting backend is implemented yet. The shell is intended for later adaptation with shadcn components and real ledger-backed data. See `docs/09-DEPLOY-CPANEL.md` for runtime target.
