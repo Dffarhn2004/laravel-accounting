@@ -2,42 +2,42 @@
 
 Evidence: observed on public reference screens or documented in reference guide on 25 Oct 2026; no end-to-end write workflow was tested. All target implementation statuses currently **Not started**. P1 core, P2 domain expansion, P3 release hardening.
 
-| ID | Scope | Reference route | Phase |
-|---|---|---|---|
-| SYS-01 | Company profile, tax default, bank details and backup/restore | #/setting | P1/P3 |
-| SYS-02 | Editable Chart of Accounts (assets, liabilities, equity, income, expense) | #/master | P1 |
-| SYS-03 | Branches, products/prices, stock minimum, asset useful life and templates | #/template | P1/P2 |
-| SYS-04 | Trial 20-transactions limit, license activation | #/aktivasi | P3 (optional pending business model) |
-| SYS-05 | Annual close and automatic carry-forward | #/tutup | P3 |
-| IN-01 | Invoices, 15 items maximum in reference, discounts, PPN, PPh23, payment | #/invoice | P1 |
-| IN-02 | POS / marketplace XLSX/CSV import, preview, dedupe and batch rollback | #/impor | P2 |
-| IN-03 | Operational expenses (cash/bank/AP) | #/beban | P1 |
-| IN-04 | Inventory purchase and issue, moving-average cost per branch | #/persediaan | P2 |
-| IN-05 | Partial and full receivable settlements | #/piutang | P2 |
-| IN-06 | Capital and fixed-asset purchases | #/asset | P2 |
-| IN-07 | Cash/bank, loans, tax payment, debt settlement, owner equity | #/kasbank | P1 |
-| IN-08 | Opening balance and branch-level balancing | #/saldo | P1 |
-| IN-09 | Initial capital and opening assets/liabilities at cut-off | #/modal | P1 |
-| IN-10 | Manual multi-account debit/credit posting | #/jm | P1 |
-| DATA-01 | Registers, search, branch filter, CSV and attached evidence | #/d-pendapatan, #/d-beban, #/d-persediaan, #/d-piutang, #/d-asset, #/d-kasbank, #/d-modal, #/d-jm | P1/P2 |
-| REP-01 | General journal | #/ju | P1 |
-| REP-02 | General ledger by account | #/bb | P1 |
-| REP-03 | Consolidated monthly profit/loss | #/lr | P1 |
-| REP-04 | Side-by-side profit/loss per branch | #/lr-cabang | P1 |
-| REP-05 | Balance sheet, opening vs closing and balance check | #/neraca | P1 |
-| REP-06 | Indirect cash flow with cash reconciliation | #/cashflow | P1 |
-| REP-07 | Inventory report and stock card | #/lap-persediaan | P2 |
-| REP-08 | Receivable aging by invoice/customer | #/lap-piutang | P2 |
-| REP-09 | Payable aging and GL reconciliation | #/lap-hutang | P2 |
-| REP-10 | PPN/PPh liabilities, settlements and tax periods | #/lap-pajak | P2 |
-| REP-11 | Fixed-asset register and GL control | #/lap-asset | P2 |
-| REP-12 | Straight-line depreciation schedules and generated postings | #/simulasi | P2 |
-| REP-13 | 19 configurable business financial ratios and classifications | #/rasio | P2 |
-| BDG-01 | Budget input by year/branch/P&L account/activity/month | #/ang-input | P2 |
-| BDG-02 | Budget register, recap, achievement against actual | #/ang-data, #/ang-rekap, #/ang-kinerja | P2 |
-| DIV-01 | Shareholder allocation, payout proportion and retained income | #/dividen | P2 |
-| DASH-01 | 6 KPIs, trend, financial-health, integrity, per branch and budget | #/dashboard | P1/P2 |
-| GUIDE-01 | Reference user documentation and settings order | #/panduan | P3 |
-| PLATFORM-01 | Original's 100% browser-local operation and manual JSON backup | #/panduan | OPEN DECISION |
+| ID          | Scope                                                                     | Reference route                                                                                   | Phase                                |
+| ----------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| SYS-01      | Company profile, tax default, bank details and backup/restore             | #/setting                                                                                         | P1/P3                                |
+| SYS-02      | Editable Chart of Accounts (assets, liabilities, equity, income, expense) | #/master                                                                                          | P1                                   |
+| SYS-03      | Branches, products/prices, stock minimum, asset useful life and templates | #/template                                                                                        | P1/P2                                |
+| SYS-04      | Trial 20-transactions limit, license activation                           | #/aktivasi                                                                                        | P3 (optional pending business model) |
+| SYS-05      | Annual close and automatic carry-forward                                  | #/tutup                                                                                           | P3                                   |
+| IN-01       | Invoices, 15 items maximum in reference, discounts, PPN, PPh23, payment   | #/invoice                                                                                         | P1                                   |
+| IN-02       | POS / marketplace XLSX/CSV import, preview, dedupe and batch rollback     | #/impor                                                                                           | P2                                   |
+| IN-03       | Operational expenses (cash/bank/AP)                                       | #/beban                                                                                           | P1                                   |
+| IN-04       | Inventory purchase and issue, moving-average cost per branch              | #/persediaan                                                                                      | P2                                   |
+| IN-05       | Partial and full receivable settlements                                   | #/piutang                                                                                         | P2                                   |
+| IN-06       | Capital and fixed-asset purchases                                         | #/asset                                                                                           | P2                                   |
+| IN-07       | Cash/bank, loans, tax payment, debt settlement, owner equity              | #/kasbank                                                                                         | P1                                   |
+| IN-08       | Opening balance and branch-level balancing                                | #/saldo                                                                                           | P1                                   |
+| IN-09       | Initial capital and opening assets/liabilities at cut-off                 | #/modal                                                                                           | P1                                   |
+| IN-10       | Manual multi-account debit/credit posting                                 | #/jm                                                                                              | P1                                   |
+| DATA-01     | Registers, search, branch filter, CSV and attached evidence               | #/d-pendapatan, #/d-beban, #/d-persediaan, #/d-piutang, #/d-asset, #/d-kasbank, #/d-modal, #/d-jm | P1/P2                                |
+| REP-01      | General journal                                                           | #/ju                                                                                              | P1                                   |
+| REP-02      | General ledger by account                                                 | #/bb                                                                                              | P1                                   |
+| REP-03      | Consolidated monthly profit/loss                                          | #/lr                                                                                              | P1                                   |
+| REP-04      | Side-by-side profit/loss per branch                                       | #/lr-cabang                                                                                       | P1                                   |
+| REP-05      | Balance sheet, opening vs closing and balance check                       | #/neraca                                                                                          | P1                                   |
+| REP-06      | Indirect cash flow with cash reconciliation                               | #/cashflow                                                                                        | P1                                   |
+| REP-07      | Inventory report and stock card                                           | #/lap-persediaan                                                                                  | P2                                   |
+| REP-08      | Receivable aging by invoice/customer                                      | #/lap-piutang                                                                                     | P2                                   |
+| REP-09      | Payable aging and GL reconciliation                                       | #/lap-hutang                                                                                      | P2                                   |
+| REP-10      | PPN/PPh liabilities, settlements and tax periods                          | #/lap-pajak                                                                                       | P2                                   |
+| REP-11      | Fixed-asset register and GL control                                       | #/lap-asset                                                                                       | P2                                   |
+| REP-12      | Straight-line depreciation schedules and generated postings               | #/simulasi                                                                                        | P2                                   |
+| REP-13      | 19 configurable business financial ratios and classifications             | #/rasio                                                                                           | P2                                   |
+| BDG-01      | Budget input by year/branch/P&L account/activity/month                    | #/ang-input                                                                                       | P2                                   |
+| BDG-02      | Budget register, recap, achievement against actual                        | #/ang-data, #/ang-rekap, #/ang-kinerja                                                            | P2                                   |
+| DIV-01      | Shareholder allocation, payout proportion and retained income             | #/dividen                                                                                         | P2                                   |
+| DASH-01     | 6 KPIs, trend, financial-health, integrity, per branch and budget         | #/dashboard                                                                                       | P1/P2                                |
+| GUIDE-01    | Reference user documentation and settings order                           | #/panduan                                                                                         | P3                                   |
+| PLATFORM-01 | Original's 100% browser-local operation and manual JSON backup            | #/panduan                                                                                         | OPEN DECISION                        |
 
 **Target-side deviations:** posted entries must be reversed rather than silently deleted; online SaaS, RBAC, company isolation and cloud storage are proposed enhancements, not confirmed reference features. No copying reference branding.

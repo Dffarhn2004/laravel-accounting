@@ -1,6 +1,7 @@
 # Third-party notices
 
 This project is initially based on the publicly released Laravel React Starter Kit:
+
 - Upstream: https://github.com/laravel/react-starter-kit
 - Author: Laravel contributors
 - License: MIT — https://github.com/laravel/react-starter-kit/blob/main/LICENSE.md (consult upstream repository for license text and authoritative terms).

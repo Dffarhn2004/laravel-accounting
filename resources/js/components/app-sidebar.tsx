@@ -27,12 +27,20 @@ import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
     { title: 'Dashboard', href: dashboard(), icon: LayoutDashboard },
-    { title: 'Master & Sistem', href: '/modules/master', icon: Settings2 },
-    { title: 'Input Transaksi', href: '/modules/transaksi', icon: ArrowLeftRight },
-    { title: 'Data Transaksi', href: '/modules/data', icon: Database },
-    { title: 'Laporan Keuangan', href: '/modules/laporan', icon: ChartNoAxesCombined },
-    { title: 'Anggaran', href: '/modules/anggaran', icon: WalletCards },
-    { title: 'Bagi Hasil & Dividen', href: '/modules/dividen', icon: Coins },
+    { title: 'Master & Sistem', href: '/accounting/master-data', icon: Settings2 },
+    {
+        title: 'Input Transaksi',
+        href: '/accounting/transactions',
+        icon: ArrowLeftRight,
+    },
+    { title: 'Data Transaksi', href: '/accounting/transactions', icon: Database },
+    {
+        title: 'Laporan Keuangan',
+        href: '/accounting/reports',
+        icon: ChartNoAxesCombined,
+    },
+    { title: 'Anggaran', href: '/accounting/budgets', icon: WalletCards },
+    { title: 'Bagi Hasil & Dividen', href: '/accounting/reports', icon: Coins },
 ];
 
 const footerNavItems: NavItem[] = [

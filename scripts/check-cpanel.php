@@ -6,7 +6,7 @@ declare(strict_types=1);
 // Run with the same PHP binary as the cPanel domain.
 $required = ['ctype', 'curl', 'dom', 'fileinfo', 'filter', 'hash', 'mbstring', 'openssl', 'pcre', 'pdo', 'session', 'tokenizer', 'xml'];
 $optional = ['pdo_mysql', 'pdo_pgsql', 'intl', 'gd', 'zip'];
-$missing = array_values(array_filter($required, static fn (string $extension): bool => !extension_loaded($extension)));
+$missing = array_values(array_filter($required, static fn (string $extension): bool => ! extension_loaded($extension)));
 $dbDrivers = array_values(array_filter(['pdo_mysql', 'pdo_pgsql'], 'extension_loaded'));
 
 echo 'PHP version: '.PHP_VERSION.PHP_EOL;
@@ -23,4 +23,4 @@ foreach (['storage', 'bootstrap/cache'] as $dir) {
 
 echo PHP_EOL.'Document root MUST point to /public and .env MUST NOT be web-accessible.'.PHP_EOL;
 echo 'This checks CLI PHP only. Verify the web PHP version and web server separately.'.PHP_EOL;
-exit(PHP_VERSION_ID < 80300 || !empty($missing) || count($dbDrivers) === 0 ? 1 : 0);
+exit(PHP_VERSION_ID < 80300 || ! empty($missing) || count($dbDrivers) === 0 ? 1 : 0);

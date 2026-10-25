@@ -15,13 +15,16 @@ class AccountingShellTest extends TestCase
         $this->get('/modules/laporan')->assertRedirect(route('login'));
     }
 
-    public function test_authenticated_user_can_open_all_prd_module_placeholders(): void
+    public function test_authenticated_user_is_redirected_from_implemented_modules(): void
     {
         $this->actingAs(User::factory()->create());
 
-        foreach (['master', 'transaksi', 'data', 'laporan', 'anggaran', 'dividen'] as $section) {
-            $this->get("/modules/{$section}")->assertOk();
-        }
+        $this->get('/modules/master')->assertRedirect(route('accounting.master-data'));
+        $this->get('/modules/transaksi')->assertRedirect(route('accounting.transactions'));
+        $this->get('/modules/data')->assertRedirect(route('accounting.transactions'));
+        $this->get('/modules/laporan')->assertRedirect(route('accounting.reports'));
+        $this->get('/modules/anggaran')->assertRedirect(route('accounting.budgets'));
+        $this->get('/modules/dividen')->assertOk();
     }
 
     public function test_unknown_module_is_not_exposed(): void
