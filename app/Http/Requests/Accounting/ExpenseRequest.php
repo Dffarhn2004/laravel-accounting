@@ -6,6 +6,11 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class ExpenseRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $this->merge(['company_id' => $this->user()?->company_id]);
+    }
+
     public function authorize(): bool
     {
         return $this->user() !== null;

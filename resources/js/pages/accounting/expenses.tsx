@@ -1,38 +1,24 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
-type Expense = {
-    id: number;
-    expense_date: string;
-    amount: string;
-    status: string;
-    reference?: string;
-    vendor?: { name: string };
-};
+type Option = { id: number; name?: string; code?: string; type?: string };
+type Expense = { id: number; expense_date: string; amount: string; status: string; reference?: string; vendor?: { name: string } };
+type Props = { expenses: { data: Expense[] }; showForm?: boolean; accounts?: Option[]; branches?: Option[]; fiscalPeriods?: { id: number; starts_on: string; ends_on: string }[] };
+const rupiah = (value: string | number) => `Rp ${Number(value).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export default function Expenses({ expenses }: { expenses: { data: Expense[] } }) {
-    return (
-        <>
-            <Head title="Expenses" />
-            <main className="mx-auto max-w-6xl p-6">
-                <Link href="/dashboard" className="text-sm text-muted-foreground">Back to dashboard</Link>
-                <h1 className="mt-4 text-2xl font-semibold">Expenses</h1>
-                <div className="mt-6 overflow-x-auto rounded-lg border">
-                    <table className="w-full text-left text-sm">
-                        <thead><tr className="border-b bg-muted/40"><th className="p-3">Date</th><th className="p-3">Vendor</th><th className="p-3">Reference</th><th className="p-3">Amount</th><th className="p-3">Status</th></tr></thead>
-                        <tbody>
-                            {expenses.data.map((expense) => (
-                                <tr key={expense.id} className="border-b last:border-0">
-                                    <td className="p-3">{expense.expense_date}</td>
-                                    <td className="p-3">{expense.vendor?.name ?? '—'}</td>
-                                    <td className="p-3">{expense.reference ?? '—'}</td>
-                                    <td className="p-3">{expense.amount}</td>
-                                    <td className="p-3">{expense.status}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </main>
-        </>
-    );
+export default function Expenses({ expenses, showForm = false, accounts = [], branches = [], fiscalPeriods = [] }: Props) {
+    const expenseAccounts = accounts.filter((account) => account.type === 'expense');
+    const settlementAccounts = accounts.filter((account) => account.type === 'asset');
+    const form = useForm({
+        branch_id: branches[0]?.id ?? '', fiscal_period_id: fiscalPeriods[0]?.id ?? '',
+        expense_account_id: expenseAccounts[0]?.id ?? accounts[0]?.id ?? '', payment_account_id: settlementAccounts[0]?.id ?? accounts[0]?.id ?? '',
+        expense_date: new Date().toISOString().slice(0, 10), amount: '', idempotency_key: `expense-${Date.now()}`,
+    });
+
+    return <><Head title="Pengeluaran & Beban" /><main className="mx-auto max-w-[1400px] space-y-6 p-4 md:p-8">
+        <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm text-muted-foreground">Transaksi / Pengeluaran</p><h1 className="text-3xl font-semibold tracking-tight">{showForm ? 'Catat Pengeluaran' : 'Pengeluaran & Beban'}</h1><p className="mt-1 text-sm text-muted-foreground">Catat beban yang dibayar langsung. Pencatatan hutang akan ditambahkan pada alur hutang usaha.</p></div>{showForm ? <Link href="/transactions/expenses" className="text-sm font-medium text-muted-foreground hover:text-foreground">Kembali ke daftar</Link> : <Button asChild><Link href="/transactions/expenses/create">Catat pengeluaran</Link></Button>}</header>
+        {showForm && <form onSubmit={(event) => { event.preventDefault(); form.post('/accounting/expenses'); }} className="grid gap-3 rounded-xl border bg-card p-5 md:grid-cols-2 xl:grid-cols-4"><select required className="rounded-md border bg-background p-2" value={form.data.branch_id} onChange={(event) => form.setData('branch_id', Number(event.target.value))}>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select><input required type="date" className="rounded-md border bg-background p-2" value={form.data.expense_date} onChange={(event) => form.setData('expense_date', event.target.value)} /><select required className="rounded-md border bg-background p-2" value={form.data.expense_account_id} onChange={(event) => form.setData('expense_account_id', Number(event.target.value))}>{expenseAccounts.map((account) => <option key={account.id} value={account.id}>Beban: {account.code} — {account.name}</option>)}</select><select required className="rounded-md border bg-background p-2" value={form.data.payment_account_id} onChange={(event) => form.setData('payment_account_id', Number(event.target.value))}>{settlementAccounts.map((account) => <option key={account.id} value={account.id}>Bayar dari: {account.code} — {account.name}</option>)}</select><input required type="number" min="0.01" step="0.01" placeholder="Nominal pengeluaran" className="rounded-md border bg-background p-2 md:col-span-2 xl:col-span-3" value={form.data.amount} onChange={(event) => form.setData('amount', event.target.value)} /><select required className="rounded-md border bg-background p-2" value={form.data.fiscal_period_id} onChange={(event) => form.setData('fiscal_period_id', Number(event.target.value))}>{fiscalPeriods.map((period) => <option key={period.id} value={period.id}>Periode {period.starts_on} — {period.ends_on}</option>)}</select><div className="md:col-span-2 xl:col-span-4"><Button type="submit" disabled={form.processing || !form.data.amount}>Posting pengeluaran</Button>{Object.values(form.errors).length > 0 && <p className="mt-2 text-sm text-destructive">Periksa kembali data pengeluaran yang wajib diisi.</p>}</div></form>}
+        {!showForm && <section className="rounded-xl border bg-card"><div className="flex items-center justify-between border-b px-5 py-4"><div><h2 className="font-semibold">Pengeluaran terbaru</h2><p className="text-sm text-muted-foreground">Semua nominal bersumber dari transaksi yang telah diposting.</p></div><Badge variant="outline">{expenses.data.length} ditampilkan</Badge></div><div className="overflow-x-auto"><table className="w-full min-w-[700px] text-left text-sm"><thead className="border-b bg-muted/40 text-xs text-muted-foreground"><tr><th className="p-3">Tanggal</th><th className="p-3">Pemasok</th><th className="p-3">Referensi</th><th className="p-3 text-right">Nominal</th><th className="p-3">Status</th></tr></thead><tbody>{expenses.data.length ? expenses.data.map((expense) => <tr key={expense.id} className="border-b last:border-0"><td className="p-3">{expense.expense_date}</td><td className="p-3">{expense.vendor?.name ?? '—'}</td><td className="p-3">{expense.reference ?? '—'}</td><td className="p-3 text-right tabular-nums">{rupiah(expense.amount)}</td><td className="p-3"><Badge variant="secondary" className="capitalize">{expense.status}</Badge></td></tr>) : <tr><td colSpan={5} className="p-10 text-center text-muted-foreground">Belum ada pengeluaran. Catat biaya operasional pertama untuk memulai.</td></tr>}</tbody></table></div></section>}
+    </main></>;
 }

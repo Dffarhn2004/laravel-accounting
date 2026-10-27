@@ -1,49 +1,16 @@
 import { Head, Link } from '@inertiajs/react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
-type Line = {
-    id: number;
-    debit: string;
-    credit: string;
-    account: { code: string; name: string };
-    journal_entry: { posted_on: string; description: string; branch: { name: string } };
-};
+type Line = { id: number; debit: string; credit: string; account: { code: string; name: string }; journal_entry: { posted_on: string; description: string; branch?: { name: string } } };
+type Account = { id: number; code: string; name: string };
+type Props = { lines: { data: Line[]; total?: number }; accounts?: Account[]; filters?: { account_id?: string | number; from?: string; to?: string } };
+const rupiah = (value: string) => `Rp ${Number(value).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export default function Ledger({ lines }: { lines: { data: Line[] } }) {
-    return (
-        <>
-            <Head title="Buku Besar" />
-            <main className="mx-auto max-w-6xl space-y-6 p-6">
-                <Link href="/dashboard" className="text-sm text-muted-foreground">Kembali</Link>
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                    <div>
-                        <h1 className="text-2xl font-semibold">Buku Besar</h1>
-                        <p className="mt-1 text-sm text-muted-foreground">Sumber angka: jurnal yang sudah diposting.</p>
-                    </div>
-                    <span className="text-sm text-muted-foreground">{lines.data.length} baris</span>
-                </div>
-                <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-sm">
-                        <thead><tr className="border-b text-left"><th className="p-3">Tanggal</th><th className="p-3">Akun</th><th className="p-3">Keterangan</th><th className="p-3 text-right">Debit</th><th className="p-3 text-right">Kredit</th></tr></thead>
-                        <tbody>
-                            {lines.data.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="p-10 text-center text-muted-foreground">
-                                        Belum ada jurnal diposting.
-                                    </td>
-                                </tr>
-                            ) : lines.data.map((line) => (
-                                <tr key={line.id} className="border-b">
-                                    <td className="p-3">{line.journal_entry.posted_on}</td>
-                                    <td className="p-3">{line.account.code} - {line.account.name}</td>
-                                    <td className="p-3">{line.journal_entry.description}</td>
-                                    <td className="p-3 text-right tabular-nums">{line.debit}</td>
-                                    <td className="p-3 text-right tabular-nums">{line.credit}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </main>
-        </>
-    );
+export default function Ledger({ lines, accounts = [], filters = {} }: Props) {
+    return <><Head title="Buku Besar" /><main className="mx-auto max-w-[1400px] space-y-6 p-4 md:p-8">
+        <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm text-muted-foreground">Akuntansi</p><h1 className="text-3xl font-semibold tracking-tight">Buku Besar</h1><p className="mt-1 text-sm text-muted-foreground">Telusuri mutasi akun dari jurnal yang sudah diposting.</p></div><Link href="/accounting/journals" className="text-sm font-medium text-muted-foreground hover:text-foreground">Lihat jurnal umum</Link></header>
+        <form action="/accounting/ledger" method="get" className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4"><label className="grid gap-1 text-sm"><span className="text-muted-foreground">Akun</span><select name="account_id" defaultValue={filters.account_id ?? ''} className="min-w-60 rounded-md border bg-background p-2"><option value="">Semua akun</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.code} — {account.name}</option>)}</select></label><label className="grid gap-1 text-sm"><span className="text-muted-foreground">Dari tanggal</span><input name="from" type="date" defaultValue={filters.from} className="rounded-md border bg-background p-2" /></label><label className="grid gap-1 text-sm"><span className="text-muted-foreground">Sampai tanggal</span><input name="to" type="date" defaultValue={filters.to} className="rounded-md border bg-background p-2" /></label><Button type="submit" variant="outline">Terapkan filter</Button>{(filters.account_id || filters.from || filters.to) && <Link href="/accounting/ledger" className="text-sm text-muted-foreground hover:text-foreground">Reset</Link>}</form>
+        <section className="rounded-xl border bg-card"><div className="flex items-center justify-between border-b px-5 py-4"><div><h2 className="font-semibold">Mutasi akun</h2><p className="text-sm text-muted-foreground">Pilih satu akun untuk analisis saldo dan detail mutasi yang lebih fokus.</p></div><Badge variant="outline">{lines.total ?? lines.data.length} baris</Badge></div><div className="overflow-x-auto"><table className="w-full min-w-[850px] text-sm"><thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground"><tr><th className="p-3">Tanggal</th><th className="p-3">Akun</th><th className="p-3">Keterangan</th><th className="p-3">Cabang</th><th className="p-3 text-right">Debit</th><th className="p-3 text-right">Kredit</th></tr></thead><tbody>{lines.data.length ? lines.data.map((line) => <tr key={line.id} className="border-b last:border-0"><td className="p-3 whitespace-nowrap">{line.journal_entry.posted_on}</td><td className="p-3 font-medium">{line.account.code} — {line.account.name}</td><td className="p-3">{line.journal_entry.description}</td><td className="p-3">{line.journal_entry.branch?.name ?? '—'}</td><td className="p-3 text-right tabular-nums">{rupiah(line.debit)}</td><td className="p-3 text-right tabular-nums">{rupiah(line.credit)}</td></tr>) : <tr><td colSpan={6} className="p-10 text-center text-muted-foreground">Belum ada mutasi yang cocok dengan filter.</td></tr>}</tbody></table></div></section>
+    </main></>;
 }

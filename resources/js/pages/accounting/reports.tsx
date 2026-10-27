@@ -1,36 +1,19 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
+import { Badge } from '@/components/ui/badge';
 
-type Summary = Record<string, { debit: string; credit: string }>;
+const number = (value: string | number | undefined) => Number(value ?? 0);
+const money = (value: number) => `Rp ${value.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export default function Reports({
-    summary,
-    receivables,
-    payables,
-}: {
-    summary: Summary;
-    receivables: string;
-    payables: string;
-}) {
-    return (
-        <>
-            <Head title="Accounting reports" />
-            <main className="mx-auto max-w-6xl space-y-6 p-6">
-                <h1 className="text-2xl font-semibold">Accounting reports</h1>
-                <div className="grid gap-4 md:grid-cols-3">
-                    {Object.entries(summary).map(([type, value]) => (
-                        <section className="rounded-lg border p-4" key={type}>
-                            <h2 className="font-medium capitalize">{type}</h2>
-                            <p>Debit: {value.debit}</p>
-                            <p>Credit: {value.credit}</p>
-                        </section>
-                    ))}
-                </div>
-                <section className="rounded-lg border p-4">
-                    <h2 className="font-medium">Subledger balances</h2>
-                    <p>Receivables: {receivables}</p>
-                    <p>Payables: {payables}</p>
-                </section>
-            </main>
-        </>
-    );
+export default function Reports({ financial, receivables = 0, payables = 0 }: { financial: { income: number; expenses: number; profit: number; assets: number; liabilities: number; equity: number; balance_difference: number }; receivables?: string | number; payables?: string | number }) {
+    const { income, expenses, profit, assets, liabilities, equity, balance_difference: balanceDifference } = financial;
+    const rows = [
+        ['Pendapatan', income], ['Beban', expenses], ['Laba / (Rugi) Bersih', profit],
+        ['Aset', assets], ['Liabilitas', liabilities], ['Ekuitas', equity],
+    ] as const;
+    return <><Head title="Laporan Keuangan" /><main className="mx-auto max-w-[1200px] space-y-6 p-4 md:p-8">
+        <header><p className="text-sm text-muted-foreground">Laporan</p><h1 className="text-3xl font-semibold tracking-tight">Ringkasan Laporan Keuangan</h1><p className="mt-1 text-sm text-muted-foreground">Angka dihitung dari jurnal yang telah diposting, bukan dari perhitungan di browser.</p></header>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><section className="rounded-xl border bg-card p-5"><p className="text-sm text-muted-foreground">Pendapatan</p><p className="mt-2 text-2xl font-semibold tabular-nums">{money(income)}</p></section><section className="rounded-xl border bg-card p-5"><p className="text-sm text-muted-foreground">Laba / (Rugi) Bersih</p><p className="mt-2 text-2xl font-semibold tabular-nums">{money(profit)}</p></section><section className="rounded-xl border bg-card p-5"><p className="text-sm text-muted-foreground">Piutang outstanding</p><p className="mt-2 text-2xl font-semibold tabular-nums">{money(number(receivables))}</p></section><section className="rounded-xl border bg-card p-5"><p className="text-sm text-muted-foreground">Hutang outstanding</p><p className="mt-2 text-2xl font-semibold tabular-nums">{money(number(payables))}</p></section></div>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]"><section className="rounded-xl border bg-card"><div className="flex items-center justify-between border-b px-5 py-4"><div><h2 className="font-semibold">Posisi & kinerja</h2><p className="text-sm text-muted-foreground">Ringkasan saldo berdasarkan klasifikasi akun.</p></div><Link href="/accounting/ledger" className="text-sm font-medium hover:underline">Buka buku besar</Link></div><div className="divide-y">{rows.map(([label, value]) => <div key={label} className="flex items-center justify-between px-5 py-3 text-sm"><span className={label === 'Laba / (Rugi) Bersih' ? 'font-semibold' : ''}>{label}</span><span className="font-medium tabular-nums">{money(value)}</span></div>)}</div></section><aside className="rounded-xl border bg-card p-5"><h2 className="font-semibold">Integritas neraca</h2><p className="mt-1 text-sm text-muted-foreground">Aset = Liabilitas + Ekuitas + hasil berjalan.</p><div className="mt-5 flex items-center justify-between gap-3"><span className="text-sm">Selisih</span><Badge variant={Math.abs(balanceDifference) < 0.01 ? 'secondary' : 'destructive'}>{money(balanceDifference)}</Badge></div><p className="mt-4 text-xs text-muted-foreground">Selisih dapat muncul bila saldo awal atau akun laba-rugi belum ditutup sesuai kebijakan periode.</p></aside></div>
+        <section className="rounded-xl border bg-card p-5"><h2 className="font-semibold">Laporan lanjutan</h2><p className="mt-1 text-sm text-muted-foreground">Laporan umur piutang dan hutang tersedia berdasarkan dokumen terbuka serta tanggal acuan.</p><Link href="/accounting/aging" className="mt-4 inline-block text-sm font-medium hover:underline">Buka umur piutang & hutang →</Link></section>
+    </main></>;
 }

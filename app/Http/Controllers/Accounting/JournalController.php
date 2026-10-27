@@ -22,6 +22,9 @@ class JournalController extends Controller
             ->paginate(25)
             ->withQueryString();
 
-        return Inertia::render('accounting/journal', ['entries' => $entries]);
+        return Inertia::render('accounting/journal', [
+            'entries' => $entries,
+            'filters' => $request->only(['from', 'to']),
+        ]);
     }
 }

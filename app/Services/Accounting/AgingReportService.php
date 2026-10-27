@@ -11,18 +11,21 @@ class AgingReportService
 {
     public function receivables(array $filters = []): Collection
     {
+        $asOf = $filters['as_of'] ?? now()->toDateString();
+
         return Invoice::query()
             ->with('customer')
             ->when($filters['company_id'] ?? null, fn ($q, $id) => $q->where('company_id', $id))
             ->when($filters['branch_id'] ?? null, fn ($q, $id) => $q->where('branch_id', $id))
-            ->whereDate('issued_on', '<=', $filters['as_of'] ?? now()->toDateString())
+            ->whereDate('issued_on', '<=', $asOf)
             ->get()
             ->map(fn (Invoice $invoice) => $this->row(
                 $invoice->invoice_number,
                 $invoice->customer?->name,
                 $invoice->issued_on,
                 $invoice->total,
-                $invoice->receiptAllocations()->whereDate('created_at', '<=', $filters['as_of'] ?? now()->toDateString())->sum('amount'),
+                $invoice->receiptAllocations()->whereDate('created_at', '<=', $asOf)->sum('amount'),
+                $asOf,
             ))
             ->filter(fn (array $row) => $row['outstanding'] > 0)
             ->values();
@@ -30,27 +33,30 @@ class AgingReportService
 
     public function payables(array $filters = []): Collection
     {
+        $asOf = $filters['as_of'] ?? now()->toDateString();
+
         return Expense::query()
             ->with('vendor')
             ->when($filters['company_id'] ?? null, fn ($q, $id) => $q->where('company_id', $id))
             ->when($filters['branch_id'] ?? null, fn ($q, $id) => $q->where('branch_id', $id))
-            ->whereDate('expense_date', '<=', $filters['as_of'] ?? now()->toDateString())
+            ->whereDate('expense_date', '<=', $asOf)
             ->get()
             ->map(fn (Expense $expense) => $this->row(
                 $expense->reference ?? 'EXP-'.$expense->id,
                 $expense->vendor?->name,
                 $expense->expense_date,
                 $expense->amount,
-                $expense->payments()->whereDate('created_at', '<=', $filters['as_of'] ?? now()->toDateString())->sum('amount'),
+                $expense->payments()->whereDate('created_at', '<=', $asOf)->sum('amount'),
+                $asOf,
             ))
             ->filter(fn (array $row) => $row['outstanding'] > 0)
             ->values();
     }
 
-    private function row(string $number, ?string $party, $date, $total, $paid): array
+    private function row(string $number, ?string $party, $date, $total, $paid, string $asOf): array
     {
         $outstanding = round((float) $total - (float) $paid, 2);
-        $days = max(0, Carbon::parse($date)->diffInDays(now()->startOfDay()));
+        $days = max(0, Carbon::parse($date)->diffInDays(Carbon::parse($asOf)));
 
         return [
             'number' => $number,

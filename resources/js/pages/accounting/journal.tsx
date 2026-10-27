@@ -1,18 +1,16 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
-export default function Journal({ entries }: { entries: { data: Array<{ id: number; posted_on: string; description: string; lines: Array<{ debit: string; credit: string; account: { code: string; name: string } }> }> } }) {
-    return (
-        <>
-            <Head title="Jurnal Umum" />
-            <main className="mx-auto max-w-6xl space-y-4 p-6">
-                <h1 className="text-2xl font-semibold">Jurnal Umum</h1>
-                <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-sm">
-                        <thead><tr className="border-b text-left"><th className="p-3">Tanggal</th><th className="p-3">Keterangan</th><th className="p-3">Akun</th><th className="p-3 text-right">Debit</th><th className="p-3 text-right">Kredit</th></tr></thead>
-                        <tbody>{entries.data.flatMap((entry) => entry.lines.map((line) => <tr key={`${entry.id}-${line.account.code}`} className="border-b last:border-0"><td className="p-3">{entry.posted_on}</td><td className="p-3">{entry.description}</td><td className="p-3">{line.account.code} — {line.account.name}</td><td className="p-3 text-right">{line.debit}</td><td className="p-3 text-right">{line.credit}</td></tr>))}</tbody>
-                    </table>
-                </div>
-            </main>
-        </>
-    );
+type Line = { debit: string; credit: string; account: { code: string; name: string } };
+type Entry = { id: number; posted_on: string; description: string; branch?: { name: string }; lines: Line[] };
+type Props = { entries: { data: Entry[]; total?: number }; filters?: { from?: string; to?: string } };
+const rupiah = (value: number) => `Rp ${value.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+export default function Journal({ entries, filters = {} }: Props) {
+    return <><Head title="Jurnal Umum" /><main className="mx-auto max-w-[1400px] space-y-6 p-4 md:p-8">
+        <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm text-muted-foreground">Akuntansi</p><h1 className="text-3xl font-semibold tracking-tight">Jurnal Umum</h1><p className="mt-1 text-sm text-muted-foreground">Dokumen jurnal yang telah diposting. Koreksi dilakukan melalui pembalikan, bukan edit langsung.</p></div><Button asChild><Link href="/accounting/manual-journal">Buat jurnal manual</Link></Button></header>
+        <form action="/accounting/journals" method="get" className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4"><label className="grid gap-1 text-sm"><span className="text-muted-foreground">Dari tanggal</span><input name="from" type="date" defaultValue={filters.from} className="rounded-md border bg-background p-2" /></label><label className="grid gap-1 text-sm"><span className="text-muted-foreground">Sampai tanggal</span><input name="to" type="date" defaultValue={filters.to} className="rounded-md border bg-background p-2" /></label><Button type="submit" variant="outline">Terapkan filter</Button>{(filters.from || filters.to) && <Link href="/accounting/journals" className="text-sm text-muted-foreground hover:text-foreground">Reset</Link>}</form>
+        <section className="rounded-xl border bg-card"><div className="flex items-center justify-between border-b px-5 py-4"><div><h2 className="font-semibold">Entri jurnal</h2><p className="text-sm text-muted-foreground">Debit dan kredit setiap entri harus selalu seimbang.</p></div><Badge variant="outline">{entries.total ?? entries.data.length} entri</Badge></div><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-sm"><thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground"><tr><th className="p-3">Tanggal</th><th className="p-3">Cabang</th><th className="p-3">Keterangan & akun</th><th className="p-3 text-right">Debit</th><th className="p-3 text-right">Kredit</th><th className="p-3">Status</th></tr></thead><tbody>{entries.data.length ? entries.data.map((entry) => { const debit = entry.lines.reduce((total, line) => total + Number(line.debit), 0); const credit = entry.lines.reduce((total, line) => total + Number(line.credit), 0); const balanced = debit === credit; return <tr key={entry.id} className="border-b align-top last:border-0"><td className="p-3 whitespace-nowrap">{entry.posted_on}</td><td className="p-3">{entry.branch?.name ?? '—'}</td><td className="p-3"><p className="font-medium">{entry.description}</p><p className="mt-1 text-xs text-muted-foreground">{entry.lines.map((line) => `${line.account.code} — ${line.account.name}`).join(' · ')}</p></td><td className="p-3 text-right tabular-nums">{rupiah(debit)}</td><td className="p-3 text-right tabular-nums">{rupiah(credit)}</td><td className="p-3"><Badge variant={balanced ? 'secondary' : 'destructive'}>{balanced ? 'Seimbang' : 'Tidak seimbang'}</Badge></td></tr>; }) : <tr><td colSpan={6} className="p-10 text-center text-muted-foreground">Belum ada jurnal dalam rentang tanggal ini.</td></tr>}</tbody></table></div></section>
+    </main></>;
 }

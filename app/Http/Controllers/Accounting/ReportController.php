@@ -51,4 +51,20 @@ class ReportController extends Controller
         ]);
         */
     }
+
+    public function profitLoss(Request $request, FinancialReportService $reports)
+    {
+        return Inertia::render('accounting/financial-statement', [
+            ...$reports->summary($request),
+            'statement' => 'profit-loss',
+        ]);
+    }
+
+    public function balanceSheet(Request $request, FinancialReportService $reports)
+    {
+        return Inertia::render('accounting/financial-statement', [
+            ...$reports->summary($request),
+            'statement' => 'balance-sheet',
+        ]);
+    }
 }

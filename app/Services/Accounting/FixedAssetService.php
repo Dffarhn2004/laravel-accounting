@@ -36,7 +36,7 @@ class FixedAssetService
             }
 
             $asset = FixedAsset::create([
-                ...$data,
+                ...collect($data)->except(['description', 'lines'])->all(),
                 'code' => $data['asset_number'] ?? $data['code'] ?? 'FA-'.$data['idempotency_key'],
                 'status' => 'active',
             ]);
@@ -66,7 +66,9 @@ class FixedAssetService
                 ->where('source_id', (string) $asset->id)
                 ->latest('id')
                 ->first();
-            return $asset->load('schedule')->setRelation('journalEntry', $entry);
+            $asset->update(['journal_entry_id' => $entry?->id]);
+
+            return $asset->fresh(['schedule', 'journalEntry']);
         });
     }
 

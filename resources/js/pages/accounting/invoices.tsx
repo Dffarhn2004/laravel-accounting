@@ -1,62 +1,35 @@
 import { Head, Link, useForm } from '@inertiajs/react';
+import { Plus, Trash2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
-type Invoice = {
-    id: number;
-    number: string;
-    issued_on: string;
-    total: string;
-    status: string;
-    customer?: { name: string };
-};
-
+type Invoice = { id: number; invoice_number: string; issued_on: string; total: string; status: string; customer?: { name: string } };
 type Option = { id: number; name?: string; code?: string };
+type Line = { description: string; quantity: string; unit_price: string };
+type Props = { invoices: { data: Invoice[] }; showForm?: boolean; customers?: Option[]; accounts?: Option[]; branches?: Option[]; fiscalPeriods?: { id: number; starts_on: string; ends_on: string }[] };
 
-export default function Invoices({ invoices, customers = [], accounts = [], branches = [], fiscalPeriods = [] }: { invoices: { data: Invoice[] }; customers?: Option[]; accounts?: Option[]; branches?: Option[]; fiscalPeriods?: Option[] }) {
+const rupiah = (value: string | number) => `Rp ${Number(value).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+export default function Invoices({ invoices, showForm = false, customers = [], accounts = [], branches = [], fiscalPeriods = [] }: Props) {
     const form = useForm({
-        branch_id: branches[0]?.id ?? '',
-        fiscal_period_id: fiscalPeriods[0]?.id ?? '',
-        customer_id: customers[0]?.id ?? '',
+        branch_id: branches[0]?.id ?? '', fiscal_period_id: fiscalPeriods[0]?.id ?? '', customer_id: customers[0]?.id ?? '',
         receivable_account_id: accounts.find((account) => account.code?.startsWith('1'))?.id ?? accounts[0]?.id ?? '',
         revenue_account_id: accounts.find((account) => account.code?.startsWith('4'))?.id ?? accounts[0]?.id ?? '',
-        invoice_number: '',
-        issued_on: new Date().toISOString().slice(0, 10),
-        idempotency_key: `invoice-${Date.now()}`,
-        lines: [{ description: '', quantity: '1', unit_price: '' }],
+        invoice_number: '', issued_on: new Date().toISOString().slice(0, 10), idempotency_key: `invoice-${Date.now()}`,
+        lines: [{ description: '', quantity: '1', unit_price: '' }] as Line[],
     });
+    const total = form.data.lines.reduce((sum, line) => sum + (Number(line.quantity) || 0) * (Number(line.unit_price) || 0), 0);
+    const updateLine = (index: number, field: keyof Line, value: string) => form.setData('lines', form.data.lines.map((line, lineIndex) => lineIndex === index ? { ...line, [field]: value } : line));
 
-    return (
-        <>
-            <Head title="Invoices" />
-            <main className="mx-auto max-w-6xl space-y-6 p-6">
-                <Link href="/dashboard" className="text-sm text-muted-foreground">← Dashboard</Link>
-                <h1 className="text-3xl font-semibold">Invoices</h1>
-                <form onSubmit={(event) => { event.preventDefault(); form.post('/accounting/invoices'); }} className="grid gap-3 rounded-xl border bg-card p-5 md:grid-cols-4">
-                    <input required placeholder="Nomor invoice" className="rounded border p-2" value={form.data.invoice_number} onChange={(event) => form.setData('invoice_number', event.target.value)} />
-                    <select required className="rounded border p-2" value={form.data.customer_id} onChange={(event) => form.setData('customer_id', Number(event.target.value))}>
-                        <option value="">Customer</option>
-                        {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
-                    </select>
-                    <input required type="number" min="0" step="0.01" placeholder="Total" className="rounded border p-2" value={form.data.lines[0].unit_price} onChange={(event) => form.setData('lines', [{ ...form.data.lines[0], unit_price: event.target.value }])} />
-                    <button disabled={form.processing} className="rounded bg-primary px-4 py-2 text-primary-foreground">Posting Invoice</button>
-                    {form.errors.invoice_number && <p className="text-sm text-destructive md:col-span-4">{form.errors.invoice_number}</p>}
-                </form>
-                <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-sm">
-                        <thead><tr className="border-b text-left"><th className="p-3">Invoice</th><th className="p-3">Customer</th><th className="p-3">Date</th><th className="p-3">Total</th><th className="p-3">Status</th></tr></thead>
-                        <tbody>
-                            {invoices.data.map((invoice) => (
-                                <tr key={invoice.id} className="border-b last:border-0">
-                                    <td className="p-3">{invoice.number}</td>
-                                    <td className="p-3">{invoice.customer?.name ?? '—'}</td>
-                                    <td className="p-3">{invoice.issued_on}</td>
-                                    <td className="p-3">Rp {invoice.total}</td>
-                                    <td className="p-3 capitalize">{invoice.status}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </main>
-        </>
-    );
+    return <><Head title="Penjualan & Invoice" /><main className="mx-auto max-w-[1400px] space-y-6 p-4 md:p-8">
+        <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm text-muted-foreground">Transaksi / Penjualan</p><h1 className="text-3xl font-semibold tracking-tight">{showForm ? 'Buat Invoice' : 'Penjualan & Invoice'}</h1><p className="mt-1 text-sm text-muted-foreground">Invoice yang diposting akan membuat jurnal dan piutang secara otomatis.</p></div>{showForm ? <Link href="/transactions/invoices" className="text-sm font-medium text-muted-foreground hover:text-foreground">Kembali ke daftar</Link> : <Button asChild><Link href="/transactions/invoices/create">Buat invoice</Link></Button>}</header>
+        {showForm && <form onSubmit={(event) => { event.preventDefault(); form.post('/accounting/invoices'); }} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+            <section className="space-y-5 rounded-xl border bg-card p-5"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><input required placeholder="Nomor invoice" className="rounded-md border bg-background p-2" value={form.data.invoice_number} onChange={(event) => form.setData('invoice_number', event.target.value)} /><input required type="date" className="rounded-md border bg-background p-2" value={form.data.issued_on} onChange={(event) => form.setData('issued_on', event.target.value)} /><select required className="rounded-md border bg-background p-2" value={form.data.customer_id} onChange={(event) => form.setData('customer_id', Number(event.target.value))}><option value="">Pilih pelanggan</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select><select required className="rounded-md border bg-background p-2" value={form.data.branch_id} onChange={(event) => form.setData('branch_id', Number(event.target.value))}>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></div>
+                <div className="overflow-x-auto rounded-lg border"><div className="grid min-w-[680px] grid-cols-[minmax(14rem,1fr)_8rem_10rem_10rem_2.5rem] gap-2 border-b bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground"><span>Deskripsi</span><span className="text-right">Qty</span><span className="text-right">Harga</span><span className="text-right">Subtotal</span><span /></div>{form.data.lines.map((line, index) => <div key={index} className="grid min-w-[680px] grid-cols-[minmax(14rem,1fr)_8rem_10rem_10rem_2.5rem] items-center gap-2 border-b px-3 py-2 last:border-0"><input required placeholder="Produk atau jasa" className="rounded-md border bg-background p-2" value={line.description} onChange={(event) => updateLine(index, 'description', event.target.value)} /><input required type="number" min="0.01" step="0.01" className="rounded-md border bg-background p-2 text-right" value={line.quantity} onChange={(event) => updateLine(index, 'quantity', event.target.value)} /><input required type="number" min="0" step="0.01" className="rounded-md border bg-background p-2 text-right" value={line.unit_price} onChange={(event) => updateLine(index, 'unit_price', event.target.value)} /><span className="text-right text-sm tabular-nums">{rupiah((Number(line.quantity) || 0) * (Number(line.unit_price) || 0))}</span><Button type="button" variant="ghost" size="icon" disabled={form.data.lines.length === 1} onClick={() => form.setData('lines', form.data.lines.filter((_, lineIndex) => lineIndex !== index))} aria-label="Hapus baris"><Trash2 className="size-4" /></Button></div>)}</div>
+                <Button type="button" variant="outline" onClick={() => form.setData('lines', [...form.data.lines, { description: '', quantity: '1', unit_price: '' }])}><Plus className="size-4" />Tambah baris</Button>
+                {Object.values(form.errors).length > 0 && <p className="text-sm text-destructive">Periksa kembali data invoice yang wajib diisi.</p>}</section>
+            <aside className="h-fit space-y-4 rounded-xl border bg-card p-5 xl:sticky xl:top-4"><div><h2 className="font-semibold">Ringkasan invoice</h2><p className="mt-1 text-xs text-muted-foreground">Preview ini akan dihitung ulang oleh server saat posting.</p></div><div className="flex justify-between border-y py-4"><span className="text-sm text-muted-foreground">Total</span><strong className="tabular-nums">{rupiah(total)}</strong></div><select required className="w-full rounded-md border bg-background p-2 text-sm" value={form.data.receivable_account_id} onChange={(event) => form.setData('receivable_account_id', Number(event.target.value))}>{accounts.map((account) => <option key={account.id} value={account.id}>Piutang: {account.code} — {account.name}</option>)}</select><select required className="w-full rounded-md border bg-background p-2 text-sm" value={form.data.revenue_account_id} onChange={(event) => form.setData('revenue_account_id', Number(event.target.value))}>{accounts.map((account) => <option key={account.id} value={account.id}>Pendapatan: {account.code} — {account.name}</option>)}</select><select required className="w-full rounded-md border bg-background p-2 text-sm" value={form.data.fiscal_period_id} onChange={(event) => form.setData('fiscal_period_id', Number(event.target.value))}>{fiscalPeriods.map((period) => <option key={period.id} value={period.id}>Periode {period.starts_on} — {period.ends_on}</option>)}</select><Button type="submit" className="w-full" disabled={form.processing || total <= 0}>Posting invoice</Button></aside>
+        </form>}
+        {!showForm && <section className="rounded-xl border bg-card"><div className="flex items-center justify-between border-b px-5 py-4"><div><h2 className="font-semibold">Invoice terbaru</h2><p className="text-sm text-muted-foreground">Status dan nilai berasal dari transaksi yang sudah diposting.</p></div><Badge variant="outline">{invoices.data.length} ditampilkan</Badge></div><div className="overflow-x-auto"><table className="w-full min-w-[700px] text-sm"><thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground"><tr><th className="p-3">Nomor</th><th className="p-3">Pelanggan</th><th className="p-3">Tanggal</th><th className="p-3 text-right">Total</th><th className="p-3">Status</th></tr></thead><tbody>{invoices.data.length ? invoices.data.map((invoice) => <tr key={invoice.id} className="border-b last:border-0"><td className="p-3 font-medium"><Link href={`/transactions/invoices/${invoice.id}`} className="hover:underline">{invoice.invoice_number}</Link></td><td className="p-3">{invoice.customer?.name ?? '—'}</td><td className="p-3">{invoice.issued_on}</td><td className="p-3 text-right tabular-nums">{rupiah(invoice.total)}</td><td className="p-3"><Badge variant="secondary" className="capitalize">{invoice.status}</Badge></td></tr>) : <tr><td colSpan={5} className="p-10 text-center text-muted-foreground">Belum ada invoice. Buat invoice pertama untuk memulai pencatatan penjualan.</td></tr>}</tbody></table></div></section>}
+    </main></>;
 }

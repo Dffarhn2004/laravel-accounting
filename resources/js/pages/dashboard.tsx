@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/card';
 import { dashboard } from '@/routes';
 
-const metrics = [
+const metricCards = [
     {
         label: 'Pendapatan',
         note: 'Periode berjalan',
@@ -56,19 +56,19 @@ const shortcuts = [
     {
         title: 'Buat Invoice',
         description: 'Catat penjualan dan piutang',
-        href: '/accounting/transactions',
+        href: '/transactions/invoices',
         icon: Plus,
     },
     {
         title: 'Input Pengeluaran',
         description: 'Biaya dan pembayaran',
-        href: '/accounting/transactions',
+        href: '/transactions/expenses',
         icon: Banknote,
     },
     {
         title: 'Jurnal & Buku Besar',
         description: 'Tinjau transaksi akuntansi',
-        href: '/accounting/reports',
+        href: '/accounting/journals',
         icon: BookCheck,
     },
     {
@@ -79,7 +79,14 @@ const shortcuts = [
     },
 ];
 
-export default function Dashboard({ metrics: values = {} }: { metrics?: Record<string, string> }) {
+export default function Dashboard({
+    kpis,
+    metrics,
+}: {
+    kpis?: { metrics?: Record<string, string> };
+    metrics?: Record<string, string>;
+}) {
+    const values = kpis?.metrics ?? metrics ?? {};
     return (
         <>
             <Head title="Dashboard Keuangan" />
@@ -87,10 +94,8 @@ export default function Dashboard({ metrics: values = {} }: { metrics?: Record<s
                 <header className="flex flex-wrap items-start justify-between gap-4">
                     <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                            <Badge variant="secondary">
-                                Accounting workspace
-                            </Badge>
-                            <Badge variant="outline">Tahap fondasi</Badge>
+                            <Badge variant="secondary">Ringkasan bisnis</Badge>
+                            <Badge variant="outline">Data jurnal</Badge>
                         </div>
                         <h1 className="pt-2 text-3xl font-semibold tracking-tight md:text-4xl">
                             Ringkasan Keuangan
@@ -101,10 +106,10 @@ export default function Dashboard({ metrics: values = {} }: { metrics?: Record<s
                         </p>
                     </div>
                     <Link
-                        href="/accounting/transactions"
+                        href="/transactions/invoices"
                         className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                     >
-                        <Plus className="size-4" /> Input transaksi
+                        <Plus className="size-4" /> Buat invoice
                     </Link>
                 </header>
 
@@ -124,7 +129,7 @@ export default function Dashboard({ metrics: values = {} }: { metrics?: Record<s
                     aria-label="Indikator keuangan utama"
                     className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
                 >
-                    {metrics.map(({ label, note, icon: Icon }) => (
+                    {metricCards.map(({ label, note, icon: Icon }) => (
                         <Card key={label} className="gap-4 py-5 shadow-xs">
                             <CardHeader className="flex flex-row items-start justify-between gap-2 px-5">
                                 <CardDescription className="text-xs font-medium">
@@ -134,7 +139,7 @@ export default function Dashboard({ metrics: values = {} }: { metrics?: Record<s
                             </CardHeader>
                             <CardContent className="space-y-2 px-5">
                                 <p className="text-2xl font-semibold tracking-tight tabular-nums">
-                                    {values[label] ?? '—'}
+                                    {values[label] ? `Rp ${values[label]}` : '—'}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                     {note}
@@ -181,7 +186,7 @@ export default function Dashboard({ metrics: values = {} }: { metrics?: Record<s
                         <CardContent className="flex flex-1 flex-col justify-between gap-6">
                             <div className="rounded-lg bg-muted/30 p-5">
                                 <div className="text-4xl font-semibold tabular-nums">
-                                    {values['Laba (Rugi) Bersih'] ?? '—'}
+                                    {values['Laba (Rugi) Bersih'] ? `Rp ${values['Laba (Rugi) Bersih']}` : '—'}
                                 </div>
                                 <p className="mt-1 text-sm text-muted-foreground">
                                     Skor belum dapat dihitung

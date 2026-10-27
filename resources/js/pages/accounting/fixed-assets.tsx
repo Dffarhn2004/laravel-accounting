@@ -1,53 +1,12 @@
-import { Head } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
-type Asset = {
-    id: number;
-    name: string;
-    cost: string;
-    residual_value: string;
-    useful_life_months: number;
-    status: string;
-    schedule?: { monthly_amount: string; remaining_value: string };
-};
+type Account = { id: number; code: string; name: string };
+type Asset = { id: number; code: string; name: string; acquired_on: string; cost: string; residual_value: string; useful_life_months: number; status: string; schedule?: { amount: string; accumulated_amount: string; book_value: string } };
+const money = (value: string) => `Rp ${Number(value).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export default function FixedAssets({ assets }: { assets: { data: Asset[] } }) {
-    return (
-        <>
-            <Head title="Aset Tetap" />
-            <main className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-8">
-                <div>
-                    <h1 className="text-3xl font-semibold">Aset Tetap</h1>
-                    <p className="text-sm text-muted-foreground">
-                        Register aset dan jadwal depresiasi garis lurus.
-                    </p>
-                </div>
-                <div className="overflow-x-auto rounded-xl border">
-                    <table className="w-full text-sm">
-                        <thead className="border-b bg-muted/30 text-left">
-                            <tr>
-                                <th className="p-3">Aset</th>
-                                <th className="p-3">Perolehan</th>
-                                <th className="p-3">Umur</th>
-                                <th className="p-3">Depresiasi/bulan</th>
-                                <th className="p-3">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {assets.data.map((asset) => (
-                                <tr key={asset.id} className="border-b last:border-0">
-                                    <td className="p-3 font-medium">{asset.name}</td>
-                                    <td className="p-3 tabular-nums">{asset.cost}</td>
-                                    <td className="p-3">{asset.useful_life_months} bulan</td>
-                                    <td className="p-3 tabular-nums">
-                                        {asset.schedule?.monthly_amount ?? '0.00'}
-                                    </td>
-                                    <td className="p-3">{asset.status}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </main>
-        </>
-    );
+export default function FixedAssets({ assets, accounts = [], branches = [], fiscalPeriods = [] }: { assets: { data: Asset[] }; accounts?: Account[]; branches?: { id: number; name: string }[]; fiscalPeriods?: { id: number; starts_on: string; ends_on: string }[] }) {
+    const form = useForm({ branch_id: branches[0]?.id ?? '', fiscal_period_id: fiscalPeriods[0]?.id ?? '', code: '', name: '', acquired_on: new Date().toISOString().slice(0, 10), cost: '', residual_value: '0', useful_life_months: '60', asset_account_id: accounts[0]?.id ?? '', settlement_account_id: accounts[0]?.id ?? '', accumulated_depreciation_account_id: accounts[0]?.id ?? '', depreciation_expense_account_id: accounts[0]?.id ?? '', description: '', idempotency_key: `asset-${Date.now()}` });
+    return <><Head title="Aset Tetap" /><main className="mx-auto max-w-[1400px] space-y-6 p-4 md:p-8"><header><p className="text-sm text-muted-foreground">Transaksi</p><h1 className="text-3xl font-semibold tracking-tight">Pembelian Aset Tetap</h1><p className="mt-1 text-sm text-muted-foreground">Perolehan aset akan membuat jurnal dan jadwal penyusutan garis lurus.</p></header><form onSubmit={(event) => { event.preventDefault(); form.post('/transactions/fixed-assets'); }} className="grid gap-3 rounded-xl border bg-card p-5 sm:grid-cols-2 xl:grid-cols-4"><input required placeholder="Kode aset" className="rounded-md border bg-background p-2" value={form.data.code} onChange={(event) => form.setData('code', event.target.value)} /><input required placeholder="Nama aset" className="rounded-md border bg-background p-2" value={form.data.name} onChange={(event) => form.setData('name', event.target.value)} /><input required type="date" className="rounded-md border bg-background p-2" value={form.data.acquired_on} onChange={(event) => form.setData('acquired_on', event.target.value)} /><input required type="number" min="0.01" step="0.01" placeholder="Nilai perolehan" className="rounded-md border bg-background p-2" value={form.data.cost} onChange={(event) => form.setData('cost', event.target.value)} /><input required type="number" min="0" step="0.01" placeholder="Nilai residu" className="rounded-md border bg-background p-2" value={form.data.residual_value} onChange={(event) => form.setData('residual_value', event.target.value)} /><input required type="number" min="1" placeholder="Masa manfaat (bulan)" className="rounded-md border bg-background p-2" value={form.data.useful_life_months} onChange={(event) => form.setData('useful_life_months', event.target.value)} /><select required className="rounded-md border bg-background p-2" value={form.data.branch_id} onChange={(event) => form.setData('branch_id', Number(event.target.value))}>{branches.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select><select required className="rounded-md border bg-background p-2" value={form.data.fiscal_period_id} onChange={(event) => form.setData('fiscal_period_id', Number(event.target.value))}>{fiscalPeriods.map((x) => <option key={x.id} value={x.id}>{x.starts_on} — {x.ends_on}</option>)}</select>{(['asset_account_id', 'settlement_account_id', 'accumulated_depreciation_account_id', 'depreciation_expense_account_id'] as const).map((field) => <select key={field} required className="rounded-md border bg-background p-2" value={form.data[field]} onChange={(event) => form.setData(field, Number(event.target.value))}><option value="">{field.replaceAll('_', ' ')}</option>{accounts.map((x) => <option key={x.id} value={x.id}>{x.code} — {x.name}</option>)}</select>)}<input placeholder="Keterangan" className="rounded-md border bg-background p-2 xl:col-span-3" value={form.data.description} onChange={(event) => form.setData('description', event.target.value)} /><div><Button type="submit" disabled={form.processing}>Posting perolehan</Button></div></form><section className="rounded-xl border bg-card"><div className="border-b px-5 py-4"><h2 className="font-semibold">Register aset</h2></div><div className="overflow-x-auto"><table className="w-full min-w-[850px] text-sm"><thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground"><tr><th className="p-3">Aset</th><th className="p-3">Tanggal</th><th className="p-3 text-right">Perolehan</th><th className="p-3">Masa manfaat</th><th className="p-3 text-right">Nilai buku</th><th className="p-3">Status</th></tr></thead><tbody>{assets.data.length ? assets.data.map((asset) => <tr key={asset.id} className="border-b last:border-0"><td className="p-3 font-medium">{asset.code} — {asset.name}</td><td className="p-3">{asset.acquired_on}</td><td className="p-3 text-right tabular-nums">{money(asset.cost)}</td><td className="p-3">{asset.useful_life_months} bulan</td><td className="p-3 text-right tabular-nums">{money(asset.schedule?.book_value ?? asset.cost)}</td><td className="p-3"><Badge variant="secondary">{asset.status}</Badge></td></tr>) : <tr><td colSpan={6} className="p-10 text-center text-muted-foreground">Belum ada aset tetap.</td></tr>}</tbody></table></div></section></main></>;
 }

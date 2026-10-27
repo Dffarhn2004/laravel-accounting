@@ -1,74 +1,21 @@
 import { Head, useForm } from '@inertiajs/react';
+import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
-type Option = { id: number; name?: string; code?: string };
-type Transaction = { id: number; description: string; amount: string; status: string };
+type Account = { id: number; name: string; code?: string };
+type CashAccount = { id: number; name: string; type?: string; account?: Account };
+type Branch = { id: number; name: string };
+type Period = { id: number; starts_on: string; ends_on: string };
+type Transaction = { id: number; description: string; amount: string; status: string; posted_on?: string; direction?: string; cash_account?: { name: string } };
+type Props = { cashAccounts?: CashAccount[]; branches?: Branch[]; fiscalPeriods?: Period[]; accounts?: Account[]; transactions?: { data: Transaction[]; total?: number }; reconciliation?: { treasury: number; gl: number | null; difference: number | null } };
+const money = (value: string | number | null | undefined) => value === null || value === undefined ? 'N/A' : `Rp ${Number(value).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export default function Treasury({
-    cashAccounts = [],
-    branches = [],
-    fiscalPeriods = [],
-    accounts = [],
-    transactions,
-    reconciliation,
-}: {
-    cashAccounts?: Option[];
-    branches?: Option[];
-    fiscalPeriods?: Option[];
-    accounts?: Option[];
-    transactions?: { data: Transaction[]; total?: number };
-    reconciliation?: { treasury: number; gl: number; difference: number };
-}) {
-    const form = useForm({
-        branch_id: branches[0]?.id ?? '',
-        fiscal_period_id: fiscalPeriods[0]?.id ?? '',
-        cash_account_id: cashAccounts[0]?.id ?? '',
-        counter_account_id: accounts[0]?.id ?? '',
-        amount: '',
-        direction: 'in',
-        description: '',
-        posted_on: new Date().toISOString().slice(0, 10),
-        idempotency_key: `treasury-${Date.now()}`,
-        lines: [],
-    });
-
-    return (
-        <>
-            <Head title="Treasury" />
-            <main className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
-                <header>
-                    <h1 className="text-3xl font-semibold">Kas & Bank</h1>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Pergerakan kas scoped berdasarkan company dan branch aktif.
-                    </p>
-                </header>
-                <form onSubmit={(event) => { event.preventDefault(); form.post('/accounting/treasury/movements'); }} className="grid gap-3 rounded-xl border bg-card p-5 md:grid-cols-4">
-                    <select className="rounded border p-2" value={form.data.cash_account_id} onChange={(event) => form.setData('cash_account_id', Number(event.target.value))}>
-                        {cashAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
-                    </select>
-                    <select className="rounded border p-2" value={form.data.counter_account_id} onChange={(event) => form.setData('counter_account_id', Number(event.target.value))}>
-                        {accounts.map((account) => <option key={account.id} value={account.id}>{account.code ?? account.name}</option>)}
-                    </select>
-                    <input required type="number" min="0.01" step="0.01" placeholder="Nominal" className="rounded border p-2" value={form.data.amount} onChange={(event) => form.setData('amount', event.target.value)} />
-                    <select className="rounded border p-2" value={form.data.direction} onChange={(event) => form.setData('direction', event.target.value)}>
-                        <option value="in">Penerimaan</option>
-                        <option value="out">Pengeluaran</option>
-                    </select>
-                    <input required placeholder="Keterangan" className="rounded border p-2 md:col-span-3" value={form.data.description} onChange={(event) => form.setData('description', event.target.value)} />
-                    <button disabled={form.processing} className="rounded bg-primary px-4 py-2 text-primary-foreground">Posting</button>
-                    {form.errors.amount && <p className="text-sm text-destructive md:col-span-4">{form.errors.amount}</p>}
-                </form>
-                <section className="grid gap-4 md:grid-cols-3">
-                    <div className="rounded-xl border p-5"><p className="text-sm text-muted-foreground">Saldo Treasury</p><p className="mt-2 text-2xl font-semibold">{reconciliation?.treasury ?? 'N/A'}</p></div>
-                    <div className="rounded-xl border p-5"><p className="text-sm text-muted-foreground">Saldo GL</p><p className="mt-2 text-2xl font-semibold">{reconciliation?.gl ?? 'N/A'}</p></div>
-                    <div className="rounded-xl border p-5"><p className="text-sm text-muted-foreground">Selisih</p><p className="mt-2 text-2xl font-semibold">{reconciliation?.difference ?? 'N/A'}</p></div>
-                </section>
-                <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-sm">
-                        <thead><tr className="border-b text-left"><th className="p-3">Keterangan</th><th className="p-3">Nominal</th><th className="p-3">Status</th></tr></thead>
-                        <tbody>{transactions?.data?.length ? transactions.data.map((transaction) => <tr key={transaction.id} className="border-b"><td className="p-3">{transaction.description}</td><td className="p-3">{transaction.amount}</td><td className="p-3">{transaction.status}</td></tr>) : <tr><td colSpan={3} className="p-8 text-center text-muted-foreground">Belum ada transaksi treasury.</td></tr>}</tbody>
-                    </table>
-                </div>
-            </main>
-        </>
-    );
+export default function Treasury({ cashAccounts = [], branches = [], fiscalPeriods = [], accounts = [], transactions, reconciliation }: Props) {
+    const [mode, setMode] = useState<'movement' | 'transfer'>('movement');
+    const defaultCash = cashAccounts[0];
+    const movement = useForm({ branch_id: branches[0]?.id ?? '', fiscal_period_id: fiscalPeriods[0]?.id ?? '', cash_account_id: defaultCash?.id ?? '', counter_account_id: accounts[0]?.id ?? '', amount: '', direction: 'in', description: '', posted_on: new Date().toISOString().slice(0, 10), idempotency_key: `treasury-${Date.now()}` });
+    const transfer = useForm({ branch_id: branches[0]?.id ?? '', fiscal_period_id: fiscalPeriods[0]?.id ?? '', from_cash_account_id: defaultCash?.id ?? '', to_cash_account_id: cashAccounts[1]?.id ?? '', from_account_id: defaultCash?.account?.id ?? '', to_account_id: cashAccounts[1]?.account?.id ?? '', amount: '', description: '', posted_on: new Date().toISOString().slice(0, 10), idempotency_key: `transfer-${Date.now()}` });
+    const updateTransferAccount = (side: 'from' | 'to', cashAccountId: number) => { const cash = cashAccounts.find((item) => item.id === cashAccountId); if (side === 'from') { transfer.setData({ ...transfer.data, from_cash_account_id: cashAccountId, from_account_id: cash?.account?.id ?? '' }); } else { transfer.setData({ ...transfer.data, to_cash_account_id: cashAccountId, to_account_id: cash?.account?.id ?? '' }); } };
+    return <><Head title="Kas & Bank" /><main className="mx-auto max-w-[1400px] space-y-6 p-4 md:p-8"><header><p className="text-sm text-muted-foreground">Transaksi</p><h1 className="text-3xl font-semibold tracking-tight">Kas & Bank</h1><p className="mt-1 text-sm text-muted-foreground">Catat pergerakan kas yang jelas sumber dan tujuan akunnya.</p></header><section className="grid gap-4 md:grid-cols-3"><div className="rounded-xl border bg-card p-5"><p className="text-sm text-muted-foreground">Saldo treasury</p><p className="mt-2 text-2xl font-semibold tabular-nums">{money(reconciliation?.treasury)}</p></div><div className="rounded-xl border bg-card p-5"><p className="text-sm text-muted-foreground">Saldo GL</p><p className="mt-2 text-2xl font-semibold tabular-nums">{money(reconciliation?.gl)}</p></div><div className="rounded-xl border bg-card p-5"><p className="text-sm text-muted-foreground">Selisih rekonsiliasi</p><p className="mt-2 text-2xl font-semibold tabular-nums">{money(reconciliation?.difference)}</p></div></section><section className="rounded-xl border bg-card p-5"><div className="mb-5 flex gap-2 border-b"><button type="button" onClick={() => setMode('movement')} className={`border-b-2 px-3 pb-3 text-sm font-medium ${mode === 'movement' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground'}`}>Penerimaan / Pengeluaran</button><button type="button" onClick={() => setMode('transfer')} className={`border-b-2 px-3 pb-3 text-sm font-medium ${mode === 'transfer' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground'}`}>Transfer antar rekening</button></div>{mode === 'movement' ? <form onSubmit={(event) => { event.preventDefault(); movement.post('/accounting/treasury/movements'); }} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><select required className="rounded-md border bg-background p-2" value={movement.data.branch_id} onChange={(event) => movement.setData('branch_id', Number(event.target.value))}>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select><select required className="rounded-md border bg-background p-2" value={movement.data.fiscal_period_id} onChange={(event) => movement.setData('fiscal_period_id', Number(event.target.value))}>{fiscalPeriods.map((period) => <option key={period.id} value={period.id}>Periode {period.starts_on} — {period.ends_on}</option>)}</select><input required type="date" className="rounded-md border bg-background p-2" value={movement.data.posted_on} onChange={(event) => movement.setData('posted_on', event.target.value)} /><select className="rounded-md border bg-background p-2" value={movement.data.direction} onChange={(event) => movement.setData('direction', event.target.value)}><option value="in">Penerimaan</option><option value="out">Pengeluaran</option></select><select required className="rounded-md border bg-background p-2" value={movement.data.cash_account_id} onChange={(event) => movement.setData('cash_account_id', Number(event.target.value))}>{cashAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select><select required className="rounded-md border bg-background p-2" value={movement.data.counter_account_id} onChange={(event) => movement.setData('counter_account_id', Number(event.target.value))}>{accounts.map((account) => <option key={account.id} value={account.id}>{account.code} — {account.name}</option>)}</select><input required type="number" min="0.01" step="0.01" placeholder="Nominal" className="rounded-md border bg-background p-2" value={movement.data.amount} onChange={(event) => movement.setData('amount', event.target.value)} /><input required placeholder="Keterangan" className="rounded-md border bg-background p-2" value={movement.data.description} onChange={(event) => movement.setData('description', event.target.value)} /><div className="sm:col-span-2 xl:col-span-4"><Button type="submit" disabled={movement.processing || !movement.data.amount}>Posting pergerakan</Button>{Object.values(movement.errors).length > 0 && <p className="mt-2 text-sm text-destructive">Periksa kembali data pergerakan kas.</p>}</div></form> : <form onSubmit={(event) => { event.preventDefault(); transfer.post('/accounting/treasury/transfers'); }} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><select required className="rounded-md border bg-background p-2" value={transfer.data.branch_id} onChange={(event) => transfer.setData('branch_id', Number(event.target.value))}>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select><select required className="rounded-md border bg-background p-2" value={transfer.data.fiscal_period_id} onChange={(event) => transfer.setData('fiscal_period_id', Number(event.target.value))}>{fiscalPeriods.map((period) => <option key={period.id} value={period.id}>Periode {period.starts_on} — {period.ends_on}</option>)}</select><input required type="date" className="rounded-md border bg-background p-2" value={transfer.data.posted_on} onChange={(event) => transfer.setData('posted_on', event.target.value)} /><input required type="number" min="0.01" step="0.01" placeholder="Nominal transfer" className="rounded-md border bg-background p-2" value={transfer.data.amount} onChange={(event) => transfer.setData('amount', event.target.value)} /><select required className="rounded-md border bg-background p-2" value={transfer.data.from_cash_account_id} onChange={(event) => updateTransferAccount('from', Number(event.target.value))}>{cashAccounts.map((account) => <option key={account.id} value={account.id}>Dari: {account.name}</option>)}</select><select required className="rounded-md border bg-background p-2" value={transfer.data.to_cash_account_id} onChange={(event) => updateTransferAccount('to', Number(event.target.value))}>{cashAccounts.map((account) => <option key={account.id} value={account.id}>Ke: {account.name}</option>)}</select><input required placeholder="Keterangan transfer" className="rounded-md border bg-background p-2 sm:col-span-2" value={transfer.data.description} onChange={(event) => transfer.setData('description', event.target.value)} /><div className="sm:col-span-2 xl:col-span-4"><Button type="submit" disabled={transfer.processing || !transfer.data.amount || transfer.data.from_cash_account_id === transfer.data.to_cash_account_id}>Posting transfer</Button>{Object.values(transfer.errors).length > 0 && <p className="mt-2 text-sm text-destructive">Pilih dua rekening yang berbeda dan periksa kembali data transfer.</p>}</div></form>}</section><section className="rounded-xl border bg-card"><div className="flex items-center justify-between border-b px-5 py-4"><div><h2 className="font-semibold">Transaksi terbaru</h2><p className="text-sm text-muted-foreground">Setiap baris dibuat bersama jurnal pendukung.</p></div><Badge variant="outline">{transactions?.total ?? transactions?.data.length ?? 0} transaksi</Badge></div><div className="overflow-x-auto"><table className="w-full min-w-[700px] text-sm"><thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground"><tr><th className="p-3">Tanggal</th><th className="p-3">Rekening</th><th className="p-3">Keterangan</th><th className="p-3">Jenis</th><th className="p-3 text-right">Nominal</th><th className="p-3">Status</th></tr></thead><tbody>{transactions?.data?.length ? transactions.data.map((transaction) => <tr key={transaction.id} className="border-b last:border-0"><td className="p-3">{transaction.posted_on ?? '—'}</td><td className="p-3">{transaction.cash_account?.name ?? '—'}</td><td className="p-3">{transaction.description}</td><td className="p-3 capitalize">{transaction.direction ?? 'transfer'}</td><td className="p-3 text-right tabular-nums">{money(transaction.amount)}</td><td className="p-3"><Badge variant="secondary">{transaction.status}</Badge></td></tr>) : <tr><td colSpan={6} className="p-10 text-center text-muted-foreground">Belum ada transaksi kas atau bank.</td></tr>}</tbody></table></div></section></main></>;
 }

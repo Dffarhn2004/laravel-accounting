@@ -11,9 +11,16 @@ class AgingController extends Controller
 {
     public function index(Request $request, AgingReportService $aging)
     {
+        $filters = [
+            'company_id' => $request->user()?->company_id,
+            'branch_id' => $request->user()?->branch_id,
+            'as_of' => $request->date('as_of')?->toDateString(),
+        ];
+
         return Inertia::render('accounting/aging', [
-            'receivables' => $aging->receivables($request->only(['company_id', 'branch_id', 'as_of'])),
-            'payables' => $aging->payables($request->only(['company_id', 'branch_id', 'as_of'])),
+            'receivables' => $aging->receivables($filters),
+            'payables' => $aging->payables($filters),
+            'filters' => ['as_of' => $filters['as_of']],
         ]);
     }
 }

@@ -24,10 +24,14 @@ class TreasuryPostingService
             }
 
             $opening = OpeningBalance::create([
-                ...$data,
-                'status' => 'posted',
+                'company_id' => $data['company_id'],
+                'branch_id' => $data['branch_id'],
+                'fiscal_period_id' => $data['fiscal_period_id'],
+                'posted_on' => $data['posted_on'],
+                'description' => $data['description'] ?? 'Opening balance',
+                'idempotency_key' => $data['idempotency_key'],
             ]);
-            app(JournalPostingService::class)->post([
+            $entry = app(JournalPostingService::class)->post([
                 ...$data,
                 'posted_on' => $data['posted_on'],
                 'description' => $data['description'] ?? 'Opening balance',
@@ -36,7 +40,9 @@ class TreasuryPostingService
                 'lines' => $data['lines'],
             ]);
 
-            return $opening;
+            $opening->update(['journal_entry_id' => $entry->id]);
+
+            return $opening->fresh('journalEntry');
         });
     }
 

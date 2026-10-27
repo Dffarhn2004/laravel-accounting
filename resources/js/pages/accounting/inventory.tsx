@@ -1,22 +1,10 @@
 import { Head } from '@inertiajs/react';
+import { Badge } from '@/components/ui/badge';
 
-export default function Inventory({ items, movements }: { items: any; movements: any }) {
-    return (
-        <>
-            <Head title="Persediaan" />
-            <main className="mx-auto max-w-6xl space-y-6 p-6">
-                <h1 className="text-2xl font-semibold">Persediaan</h1>
-                <section className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-lg border p-4">
-                        <h2 className="font-medium">Item</h2>
-                        <p className="mt-2 text-2xl">{items.total ?? 0}</p>
-                    </div>
-                    <div className="rounded-lg border p-4">
-                        <h2 className="font-medium">Movement</h2>
-                        <p className="mt-2 text-2xl">{movements.total ?? 0}</p>
-                    </div>
-                </section>
-            </main>
-        </>
-    );
+type Item = { id: number; sku: string; name: string; unit: string; minimum_stock: string; is_active: boolean };
+type Movement = { id: number; moved_on: string; movement_type: string; quantity: string; unit_cost: string; total_cost: string; quantity_balance: string; item?: { sku: string; name: string }; branch?: { name: string } };
+const money = (value: string) => `Rp ${Number(value).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+export default function Inventory({ items, movements }: { items: { data: Item[]; total?: number }; movements: { data: Movement[]; total?: number } }) {
+    return <><Head title="Persediaan" /><main className="mx-auto max-w-[1400px] space-y-6 p-4 md:p-8"><header><p className="text-sm text-muted-foreground">Transaksi</p><h1 className="text-3xl font-semibold tracking-tight">Persediaan</h1><p className="mt-1 text-sm text-muted-foreground">Ringkasan item dan mutasi yang telah diposting. Pencatatan stock-in/out masih tahap lanjutan.</p></header><section className="grid gap-4 md:grid-cols-2"><div className="rounded-xl border bg-card p-5"><p className="text-sm text-muted-foreground">Item aktif</p><p className="mt-2 text-2xl font-semibold">{items.total ?? 0}</p></div><div className="rounded-xl border bg-card p-5"><p className="text-sm text-muted-foreground">Mutasi tercatat</p><p className="mt-2 text-2xl font-semibold">{movements.total ?? 0}</p></div></section><section className="rounded-xl border bg-card"><div className="border-b px-5 py-4"><h2 className="font-semibold">Master item</h2></div><div className="overflow-x-auto"><table className="w-full min-w-[650px] text-sm"><thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground"><tr><th className="p-3">SKU</th><th className="p-3">Nama</th><th className="p-3">Satuan</th><th className="p-3 text-right">Minimum stok</th><th className="p-3">Status</th></tr></thead><tbody>{items.data.length ? items.data.map((item) => <tr key={item.id} className="border-b last:border-0"><td className="p-3 font-medium">{item.sku}</td><td className="p-3">{item.name}</td><td className="p-3">{item.unit}</td><td className="p-3 text-right tabular-nums">{item.minimum_stock}</td><td className="p-3"><Badge variant={item.is_active ? 'secondary' : 'outline'}>{item.is_active ? 'Aktif' : 'Nonaktif'}</Badge></td></tr>) : <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">Belum ada item persediaan.</td></tr>}</tbody></table></div></section><section className="rounded-xl border bg-card"><div className="border-b px-5 py-4"><h2 className="font-semibold">Mutasi terbaru</h2></div><div className="overflow-x-auto"><table className="w-full min-w-[800px] text-sm"><thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground"><tr><th className="p-3">Tanggal</th><th className="p-3">Item</th><th className="p-3">Cabang</th><th className="p-3">Jenis</th><th className="p-3 text-right">Qty</th><th className="p-3 text-right">Nilai</th></tr></thead><tbody>{movements.data.length ? movements.data.map((movement) => <tr key={movement.id} className="border-b last:border-0"><td className="p-3">{movement.moved_on}</td><td className="p-3">{movement.item ? `${movement.item.sku} — ${movement.item.name}` : '—'}</td><td className="p-3">{movement.branch?.name ?? '—'}</td><td className="p-3 capitalize">{movement.movement_type}</td><td className="p-3 text-right tabular-nums">{movement.quantity}</td><td className="p-3 text-right tabular-nums">{money(movement.total_cost)}</td></tr>) : <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Belum ada mutasi persediaan.</td></tr>}</tbody></table></div></section></main></>;
 }

@@ -44,10 +44,26 @@ class FinancialReportService
         $companyId = $request->user()?->company_id;
         $branchId = $request->user()?->branch_id;
 
-        return ['summary' => $this->summarize(
+        $summary = $this->summarize(
             $companyId,
             $branchId,
-        ), 'receivables' => Invoice::query()
+        );
+        $income = (float) ($summary['income']['credit'] ?? 0) - (float) ($summary['income']['debit'] ?? 0);
+        $expenses = (float) ($summary['expense']['debit'] ?? 0) - (float) ($summary['expense']['credit'] ?? 0);
+        $assets = (float) ($summary['asset']['debit'] ?? 0) - (float) ($summary['asset']['credit'] ?? 0);
+        $liabilities = (float) ($summary['liability']['credit'] ?? 0) - (float) ($summary['liability']['debit'] ?? 0);
+        $equity = (float) ($summary['equity']['credit'] ?? 0) - (float) ($summary['equity']['debit'] ?? 0);
+
+        return ['summary' => $summary,
+        'financial' => [
+            'income' => $income,
+            'expenses' => $expenses,
+            'profit' => $income - $expenses,
+            'assets' => $assets,
+            'liabilities' => $liabilities,
+            'equity' => $equity,
+            'balance_difference' => $assets - $liabilities - $equity - ($income - $expenses),
+        ], 'receivables' => Invoice::query()
             ->where('company_id', $companyId)
             ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
             ->whereIn('status', ['unpaid', 'partial'])

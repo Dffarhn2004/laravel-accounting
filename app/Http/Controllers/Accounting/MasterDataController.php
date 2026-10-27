@@ -124,14 +124,71 @@ class MasterDataController extends Controller
         $companyId = $request->user()?->company_id;
 
         return Inertia::render('accounting/master-data', [
+            'screen' => match ($request->path()) {
+                'master/accounts' => 'accounts',
+                'master/branches' => 'branches',
+                'master/customers' => 'customers',
+                'master/vendors' => 'vendors',
+                'master/accounts-cash' => 'cash-accounts',
+                'master/products' => 'products',
+                default => 'overview',
+            },
             'company' => $companyId ? Company::find($companyId) : null,
             'branches' => Branch::query()->when($companyId, fn ($q) => $q->where('company_id', $companyId))->orderBy('name')->get(),
             'accounts' => Account::query()->when($companyId, fn ($q) => $q->where('company_id', $companyId))->orderBy('code')->get(),
             'customers' => Customer::query()->when($companyId, fn ($q) => $q->where('company_id', $companyId))->orderBy('name')->get(),
             'vendors' => Vendor::query()->when($companyId, fn ($q) => $q->where('company_id', $companyId))->orderBy('name')->get(),
             'taxCodes' => TaxCode::query()->when($companyId, fn ($q) => $q->where('company_id', $companyId))->orderBy('code')->get(),
-            'inventoryItems' => InventoryItem::query()->when($companyId, fn ($q) => $q->where('company_id', $companyId))->orderBy('sku')->get(),
+            'inventoryItems' => InventoryItem::query()->when($companyId, fn ($q) => $q->where('company_id', $companyId))->with('revenueAccount')->orderBy('sku')->get(),
             'cashAccounts' => CashAccount::query()->when($companyId, fn ($q) => $q->where('company_id', $companyId))->with('account')->orderBy('name')->get(),
         ]);
+    }
+
+    public function accounts(Request $request)
+    {
+        $companyId = $request->user()?->company_id;
+        return Inertia::render('accounting/chart-of-accounts', [
+            'accounts' => Account::query()->where('company_id', $companyId)->orderBy('code')->get(['id', 'code', 'name', 'type', 'is_active']),
+        ]);
+    }
+
+    public function branches(Request $request)
+    {
+        return $this->register($request, 'branches');
+    }
+
+    public function customers(Request $request)
+    {
+        return $this->register($request, 'customers');
+    }
+
+    public function vendors(Request $request)
+    {
+        return $this->register($request, 'vendors');
+    }
+
+    private function register(Request $request, string $entity)
+    {
+        $companyId = $request->user()?->company_id;
+        $model = match ($entity) {
+            'branches' => Branch::class,
+            'customers' => Customer::class,
+            'vendors' => Vendor::class,
+        };
+
+        return Inertia::render('accounting/master-register', [
+            'entity' => $entity,
+            'rows' => $model::query()->where('company_id', $companyId)->orderBy('name')->get(['id', 'code', 'name', ...($entity === 'branches' ? ['is_active'] : [])]),
+        ]);
+    }
+
+    public function cashAccounts(Request $request)
+    {
+        return $this->index($request);
+    }
+
+    public function products(Request $request)
+    {
+        return $this->index($request);
     }
 }
