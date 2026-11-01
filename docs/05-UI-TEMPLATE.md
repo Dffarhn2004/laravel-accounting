@@ -1,5 +1,7 @@
 # Modern Dashboard Starter & UI Specification
 
+> **SUPERSEDED (2026-11-01) untuk bagian "Sidebar".** Sidebar mengikuti `docs/reference-catatrapi/01-MENU-PERSIS.md` dan `config/navigation.php`. Bagian lain (tampilan, tabel, form, komponen) masih berlaku.
+
 Audit baseline: 25 Oct 2026. Before installation, reconfirm package release notes and compatibility.
 
 ## Candidates

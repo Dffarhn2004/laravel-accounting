@@ -1,4 +1,5 @@
 import type { Auth } from '@/types/auth';
+import type { ContractSection } from '@/types/navigation';
 
 declare module 'react' {
     interface InputHTMLAttributes<T> {
@@ -11,6 +12,7 @@ declare module '@inertiajs/core' {
         sharedPageProps: {
             name: string;
             auth: Auth;
+            navigation: ContractSection[];
             sidebarOpen: boolean;
             [key: string]: unknown;
         };

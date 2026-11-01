@@ -7,6 +7,10 @@ use App\Models\Account;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Customer;
+use App\Models\JournalLine;
+use App\Support\Accounting\ReferenceChartOfAccounts;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use App\Models\TaxCode;
 use App\Models\Vendor;
 use App\Models\InventoryItem;
@@ -40,16 +44,50 @@ class MasterDataController extends Controller
 
     public function storeAccount(Request $request): RedirectResponse
     {
-        $data = $request->validate([
-            'code' => ['required', 'string', 'max:50'],
-            'name' => ['required', 'string', 'max:255'],
-            'type' => ['required', 'in:asset,liability,equity,income,expense'],
-        ]);
         $companyId = $request->user()->company_id;
         abort_unless($companyId, 403);
+
+        $data = $request->validate([
+            'code' => ['required', 'regex:/^[1-5][0-9]{1,9}$/', Rule::unique('accounts', 'code')->where('company_id', $companyId)],
+            'name' => ['required', 'string', 'max:255'],
+            'type' => ['required', 'in:asset,liability,equity,income,expense'],
+            'module' => ['nullable', 'string', 'max:100'],
+            'definition' => ['nullable', 'string', 'max:1000'],
+            'is_contra' => ['sometimes', 'boolean'],
+        ], [
+            'code.regex' => 'Kode harus angka dan diawali 1 (Aset), 2 (Kewajiban), 3 (Ekuitas), 4 (Pendapatan), atau 5 (Beban).',
+            'code.unique' => 'Kode akun sudah dipakai.',
+        ]);
+
+        // Prefix decides the category, so the chart stays consistent for every report.
+        if (ReferenceChartOfAccounts::typeForCode($data['code']) !== $data['type']) {
+            throw ValidationException::withMessages([
+                'type' => 'Jenis akun tidak sesuai awalan kode (1 Aset, 2 Kewajiban, 3 Ekuitas, 4 Pendapatan, 5 Beban).',
+            ]);
+        }
+
         Account::create($data + ['company_id' => $companyId]);
 
         return back()->with('success', 'Account created.');
+    }
+
+    /**
+     * Code and category are immutable (posted history references them);
+     * name, module and definition can be renamed and appear in menus and reports.
+     */
+    public function updateAccount(Request $request, Account $account): RedirectResponse
+    {
+        abort_unless($account->company_id === $request->user()->company_id, 404);
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'module' => ['nullable', 'string', 'max:100'],
+            'definition' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $account->update($data);
+
+        return back()->with('success', 'Account updated.');
     }
 
     public function storeCustomer(Request $request): RedirectResponse
@@ -114,6 +152,17 @@ class MasterDataController extends Controller
     public function deactivateAccount(Request $request, Account $account): RedirectResponse
     {
         abort_unless($account->company_id === $request->user()->company_id, 404);
+
+        $used = JournalLine::where('account_id', $account->id)->exists()
+            || CashAccount::where('account_id', $account->id)->exists()
+            || InventoryItem::where('inventory_account_id', $account->id)->exists();
+
+        if ($used) {
+            throw ValidationException::withMessages([
+                'account' => 'Akun sudah dipakai transaksi atau pengaturan, tidak boleh dinonaktifkan.',
+            ]);
+        }
+
         $account->update(['is_active' => false]);
 
         return back()->with('success', 'Account deactivated.');
@@ -148,7 +197,7 @@ class MasterDataController extends Controller
     {
         $companyId = $request->user()?->company_id;
         return Inertia::render('accounting/chart-of-accounts', [
-            'accounts' => Account::query()->where('company_id', $companyId)->orderBy('code')->get(['id', 'code', 'name', 'type', 'is_active']),
+            'accounts' => Account::query()->where('company_id', $companyId)->orderBy('code')->get(['id', 'code', 'name', 'type', 'module', 'definition', 'is_contra', 'is_active']),
         ]);
     }
 

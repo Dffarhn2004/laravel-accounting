@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Branch extends Model
 {
-    protected $fillable = ['company_id', 'name', 'code'];
+    protected $fillable = ['company_id', 'name', 'code', 'city', 'brand', 'is_active'];
 
     public function company(): BelongsTo
     {

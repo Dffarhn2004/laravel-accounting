@@ -1,5 +1,7 @@
 # UI Sitemap & Page Definition — Laravel Accounting
 
+> **SUPERSEDED (2026-11-01) untuk struktur menu/sidebar dan jumlah halaman.** Kontrak yang berlaku: `docs/reference-catatrapi/` (43 menu persis) dan `config/navigation.php`. Dokumen ini hanya dipakai untuk pola komponen UI, state, dan prinsip UX. Lihat `docs/alignment/00-RULES.md`.
+
 **Version:** UX spec 1.0 (27 October 2026)  
 **Status:** proposed information architecture, not claim of feature completeness  
 **Reference:** feature matrix docs/02-FEATURE-MATRIX.md, PRD docs/01-PRD.md, CatatRapi public demo  

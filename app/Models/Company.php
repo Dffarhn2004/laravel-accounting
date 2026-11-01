@@ -16,5 +16,8 @@ class Company extends Model
     public function fiscalPeriods(): HasMany { return $this->hasMany(FiscalPeriod::class); }
     public function journalEntries(): HasMany { return $this->hasMany(JournalEntry::class); }
     public function cashAccounts(): HasMany { return $this->hasMany(CashAccount::class); }
+    public function products(): HasMany { return $this->hasMany(Product::class); }
+    public function assetCategories(): HasMany { return $this->hasMany(AssetCategory::class); }
+    public function templateOptions(): HasMany { return $this->hasMany(TemplateOption::class); }
     public function inventoryItems(): HasMany { return $this->hasMany(InventoryItem::class); }
 }

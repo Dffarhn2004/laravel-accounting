@@ -13,3 +13,17 @@ export type NavItem = {
     isActive?: boolean;
     items?: NavItem[];
 };
+
+export type NavStatus = 'partial' | 'pending';
+
+export type ContractItem = {
+    id: string;
+    label: string;
+    path: string;
+    status: NavStatus;
+};
+
+export type ContractSection =
+    | ({ type: 'link' } & ContractItem)
+    | { type: 'group'; id: string; label: string; items: ContractItem[] }
+    | { type: 'action'; id: string; label: string };

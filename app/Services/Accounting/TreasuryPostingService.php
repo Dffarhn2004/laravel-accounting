@@ -17,6 +17,8 @@ class TreasuryPostingService
     {
         return DB::transaction(function () use ($data) {
             $this->scope($data);
+            // Same exclusivity as Saldo Neraca / Setoran Modal Awal: one opening per branch + period.
+            OpeningPositionService::ensureFree($data['company_id'], $data['branch_id'], $data['fiscal_period_id']);
             if (OpeningBalance::where('company_id', $data['company_id'])
                 ->where('fiscal_period_id', $data['fiscal_period_id'])
                 ->where('idempotency_key', $data['idempotency_key'])->exists()) {

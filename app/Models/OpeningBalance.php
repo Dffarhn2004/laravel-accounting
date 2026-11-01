@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class OpeningBalance extends Model
 {
@@ -14,6 +15,7 @@ class OpeningBalance extends Model
         return ['posted_on' => 'date', 'amount' => 'decimal:2'];
     }
 
+    public function lines(): HasMany { return $this->hasMany(OpeningBalanceLine::class); }
     public function company(): BelongsTo { return $this->belongsTo(Company::class); }
     public function branch(): BelongsTo { return $this->belongsTo(Branch::class); }
     public function fiscalPeriod(): BelongsTo { return $this->belongsTo(FiscalPeriod::class); }

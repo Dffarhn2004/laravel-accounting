@@ -21,6 +21,8 @@ class TreasuryController extends Controller
         $companyId = $user->company_id;
         $branchId = $user->branch_id;
 
+        abort_unless($companyId, 403, 'Akun Anda belum terhubung ke perusahaan.');
+
         return Inertia::render('accounting/treasury', [
             'cashAccounts' => CashAccount::query()
                 ->where('company_id', $companyId)
