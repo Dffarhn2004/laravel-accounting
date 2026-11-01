@@ -37,7 +37,7 @@ Prasyarat aktif: validasi Invoice sudah membatasi customer, cabang, periode, dan
 
 DoD: ACC-01..04, 14, 16, 21, 22 lulus; satu invoice mengalir ke semua laporan dan dashboard.
 
-## [ ] Langkah 4: Beban, Kas/Bank, Piutang, Jurnal Manual
+## [~] Langkah 4: Beban, Kas/Bank, Piutang, Jurnal Manual (4.1 Beban selesai; 4.2 Kas/Bank, 4.3 Piutang, 4.4 Jurnal Manual + Modal Awal, 4.5 Laporan Piutang/Hutang belum)
 Spek: `03`, `04`, `05` (Piutang, Hutang).
 Input Beban + Data Beban; Input Pindah Saldo Kas/Bank (11 kategori, Dari/Ke dibatasi jenis) + Data Kas & Bank; Input Pelunasan Piutang (cabang mengikuti invoice, tidak melebihi sisa, idempoten) + Data Pelunasan; Input Jurnal Manual (2-6 baris) + Data Jurnal Manual; Data Modal Awal; Laporan Piutang (aging <=30 / 31-60 / >60); Laporan Daftar Hutang (multi-sumber + rekonsiliasi GL).
 

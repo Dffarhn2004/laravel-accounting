@@ -18,17 +18,51 @@ use App\Http\Requests\Accounting\ReceiptRequest;
 use App\Services\Accounting\TransactionPostingService;
 use Illuminate\Http\RedirectResponse;
 use App\Services\Accounting\AttachmentService;
+use App\Support\Accounting\Periods;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class TransactionController extends Controller
 {
-    public function storeExpense(ExpenseRequest $request, TransactionPostingService $service): RedirectResponse
+    public function storeExpense(ExpenseRequest $request, TransactionPostingService $service, AttachmentService $attachments): RedirectResponse
     {
-        $service->expense($request->validated());
+        $user = $request->user();
+        $companyId = $user->company_id;
+        $data = $request->validated();
+        $files = $request->file('attachments', []);
+        unset($data['attachments']);
 
-        return back()->with('success', 'Expense posted.');
+        if ($user->branch_id && (int) $data['branch_id'] !== $user->branch_id) {
+            return back()->withErrors(['branch_id' => 'Anda hanya dapat mencatat untuk cabang Anda sendiri.'])->withInput();
+        }
+        $period = Periods::openFor($companyId, $data['expense_date']);
+        if (! $period) {
+            return back()->withErrors(['expense_date' => 'Tidak ada tahun buku terbuka untuk tanggal ini.'])->withInput();
+        }
+
+        // Cash/bank settles now (asset); a payable (liability) leaves the expense open as debt.
+        $option = TemplateOption::where(['company_id' => $companyId, 'group' => 'outflow_payment', 'code' => $data['payment_method']])->first();
+        $account = $option?->account_id ? Account::where('company_id', $companyId)->find($option->account_id) : null;
+        if (! $account || ! in_array($account->type, ['asset', 'liability'], true)) {
+            return back()->withErrors(['payment_method' => 'Jenis pembayaran belum dipetakan ke akun kas/bank/hutang (Template Jurnal bagian 7).'])->withInput();
+        }
+        $data[$account->type === 'asset' ? 'payment_account_id' : 'payable_account_id'] = $account->id;
+
+        try {
+            $expense = DB::transaction(function () use ($service, $attachments, $data, $files, $period, $companyId, $user) {
+                $expense = $service->expense($data + ['company_id' => $companyId, 'fiscal_period_id' => $period->id, 'created_by' => $user->id]);
+                if ($files) {
+                    $attachments->attach($expense, $companyId, $files, $user->id);
+                }
+
+                return $expense;
+            });
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['expense' => $e->getMessage()])->withInput();
+        }
+
+        return redirect()->route('transactions.expenses.show', $expense)->with('success', 'Beban '.$expense->reference.' diposting.');
     }
 
     public function storeInvoice(InvoiceRequest $request, TransactionPostingService $service, AttachmentService $attachments): RedirectResponse
@@ -110,34 +144,19 @@ class TransactionController extends Controller
         ]);
     }
 
-    public function expenses(Request $request)
-    {
-        $companyId = $request->user()?->company_id;
-
-        return Inertia::render('accounting/expenses', [
-            'showForm' => false,
-            'expenses' => Expense::query()->with('vendor')->where('company_id', $companyId)
-                ->when($request->string('search')->trim()->value(), fn ($query, $search) => $query->where(function ($q) use ($search) { $q->where('reference', 'like', '%'.$search.'%')->orWhereHas('vendor', fn ($vendor) => $vendor->where('name', 'like', '%'.$search.'%')); }))
-                ->when($request->string('status')->trim()->value(), fn ($query, $status) => $query->where('status', $status))
-                ->when($request->date('from'), fn ($query, $date) => $query->whereDate('expense_date', '>=', $date))
-                ->when($request->date('to'), fn ($query, $date) => $query->whereDate('expense_date', '<=', $date))
-                ->latest('expense_date')->paginate(25)->withQueryString(),
-            'accounts' => Account::query()->where('company_id', $companyId)->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name', 'type']),
-            'branches' => Branch::query()->where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'fiscalPeriods' => FiscalPeriod::query()->where('company_id', $companyId)->where('status', 'open')->orderBy('starts_on')->get(['id', 'starts_on', 'ends_on']),
-            'filters' => $request->only(['search', 'status', 'from', 'to']),
-        ]);
-    }
-
     public function createExpense(Request $request)
     {
-        $companyId = $request->user()?->company_id;
-        return Inertia::render('accounting/expenses', [
-            'showForm' => true,
-            'expenses' => Expense::query()->where('company_id', $companyId)->paginate(1),
-            'accounts' => Account::query()->where('company_id', $companyId)->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name', 'type']),
-            'branches' => Branch::query()->where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+        $user = $request->user();
+        $companyId = $user->company_id;
+        abort_unless($companyId, 403, 'Akun Anda belum terhubung ke perusahaan.');
+
+        return Inertia::render('accounting/expense-form', [
+            'accounts' => Account::query()->where('company_id', $companyId)->where('is_active', true)->where('type', 'expense')->orderBy('code')->get(['id', 'code', 'name']),
+            'branches' => Branch::query()->where('company_id', $companyId)->where('is_active', true)->when($user->branch_id, fn ($q) => $q->whereKey($user->branch_id))->orderBy('name')->get(['id', 'code', 'name']),
             'fiscalPeriods' => FiscalPeriod::query()->where('company_id', $companyId)->where('status', 'open')->orderBy('starts_on')->get(['id', 'starts_on', 'ends_on']),
+            'paymentMethods' => TemplateOption::query()->where(['company_id' => $companyId, 'group' => 'outflow_payment', 'is_active' => true])->with('account:id,type')->orderBy('sort_order')->get(['id', 'code', 'label', 'account_id'])
+                ->map(fn ($o) => ['id' => $o->id, 'code' => $o->code, 'label' => $o->label, 'settles' => $o->account?->type === 'asset' ? 'now' : ($o->account?->type === 'liability' ? 'debt' : null)])->values(),
+            'maxAttachments' => AttachmentService::MAX_FILES,
         ]);
     }
 
@@ -146,13 +165,10 @@ class TransactionController extends Controller
         abort_unless($expense->company_id === $request->user()?->company_id, 404);
 
         return Inertia::render('accounting/expense-detail', [
-            'expense' => $expense->load(['vendor', 'payments']),
-            'journalEntry' => JournalEntry::query()
-                ->where('company_id', $expense->company_id)
-                ->where('source_type', TransactionPostingService::class)
-                ->where('source_id', (string) $expense->id)
-                ->with('lines.account')
-                ->first(),
+            'expense' => $expense->load(['vendor', 'payments', 'attachments', 'expenseAccount:id,code,name', 'settlementAccount:id,code,name', 'branch:id,name']),
+            'journalEntry' => $expense->journal_entry_id
+                ? JournalEntry::with('lines.account')->where('company_id', $expense->company_id)->find($expense->journal_entry_id)
+                : null,
         ]);
     }
 

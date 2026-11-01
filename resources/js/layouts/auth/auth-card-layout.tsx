@@ -9,6 +9,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { home } from '@/routes';
+import ThemeToggle from '@/components/theme-toggle';
 
 export default function AuthCardLayout({
     children,
@@ -20,7 +21,7 @@ export default function AuthCardLayout({
     description?: string;
 }>) {
     return (
-        <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
+        <div className="relative flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10"><div className="absolute right-5 top-5"><ThemeToggle compact /></div>
             <div className="flex w-full max-w-md flex-col gap-6">
                 <Link
                     href={home()}

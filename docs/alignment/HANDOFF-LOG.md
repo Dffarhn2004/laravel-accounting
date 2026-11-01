@@ -3,6 +3,45 @@
 Format entri: tanggal · agent/orang · apa yang dikerjakan · status test · hal yang menggantung · saran langkah berikut.
 
 ---
+## 2026-11-01 (sesi 19) · Claude (Sonnet 5.5) · Template Jurnal: tab + tombol Tambah (dialog)
+- Masukan user (dengan tangkapan layar): 10 bagian Template Jurnal tampil sekaligus dalam satu halaman panjang; seharusnya per tab, dan tiap tab punya tombol Tambah, bukan baris input di dasar tabel (melanggar `10-IMPLEMENTATION-UI-RULES.md` baris 9).
+- `journal-template.tsx` ditulis ulang: 10 tab (`role=tablist`, panah kiri/kanan, tab aktif di URL lewat `history.replaceState` agar tidak memicu request atau skeleton), hanya isi tab aktif yang dirender; tombol **Tambah** per tab membuka dialog (`AddDialog`) berisi field tambah; baris tambah inline dihapus; edit baris yang ada tetap inline dengan tombol Simpan; keadaan kosong menjelaskan langkah berikutnya. Backend dan route tidak berubah.
+- Verifikasi: `tsc` bersih, build OK, `JournalTemplateTest` 12/12 lulus. Belum dicoba di browser, belum di-commit.
+- Masih terbuka (belum dikerjakan, menunggu keputusan user): kontrol palsu di header aplikasi (dropdown cabang/periode, badge periode, "+ Buat transaksi"); ADR-011 (alokasi pembayaran hutang) sebelum Langkah 4.2.
+
+---
+## 2026-11-01 (sesi 17) · Claude (Sonnet 5.5) · Skeleton belum tampil di menu yang sudah dibangun
+- Laporan user (dengan tangkapan layar sidebar): skeleton benar untuk menu berjam (halaman pending) tetapi tidak muncul untuk menu yang sudah dibangun.
+- Akar masalah: `nav-main.tsx` memberi `prefetch` pada menu yang sudah dibangun dan tidak pada menu pending. Klik pada menu ber-prefetch dilayani dari cache; `navigation-loading.tsx` sendiri mengecualikan kunjungan `cached` (kesalahan saya di sesi 14-15), dan event `start` tidak selalu terpicu untuk kunjungan cache.
+- Perbaikan: skeleton dipicu dari event `before` (selalu terpicu, termasuk dari cache), pengecualian `cached` dihapus (permintaan prefetch latar belakang tetap dikecualikan lewat `visit.prefetch`); disembunyikan oleh `finish`/`cancel`/`navigate`/`error`/`networkError`/`httpException` dengan tampil minimal 250 ms; pengaman 20 detik bila kunjungan berakhir tanpa event.
+- Verifikasi: `tsc` bersih, build OK. Belum dicoba di browser, belum di-commit.
+
+---
+## 2026-11-01 (sesi 16) · Claude (Sonnet 5.5) · Langkah 4.1 Input Beban + Data Beban
+- Migrasi `2026_11_01_080000`: `expenses.description`, `payment_method`, kolom pembalikan (`reversal_journal_entry_id`, `reversal_reason`, `reversed_at`).
+- `TransactionPostingService::expense()` ditulis ulang: akun dicek company dan tipe (beban = expense, kas/bank = asset, hutang = liability), tahun buku harus terbuka, referensi otomatis `BBN-YYYY-00001` (jadi "No Trx" di Jurnal Umum), journal_entry_id tersimpan, whitelist kolom. `reverseExpense()` ditulis ulang: alasan wajib, tanggal >= tanggal beban, tahun buku terbuka, ditolak bila sudah ada pelunasan hutang atau sudah dibalik.
+- `ExpenseRequest`: validasi company-scoped; metode bayar harus ada di Template Jurnal bagian 7; **akun lawan ditentukan server** dari pemetaan template (asset -> lunas, liability -> hutang terbuka), tidak pernah dari browser. `TransactionController::storeExpense` mencari tahun buku dari tanggal, mengikat cabang untuk user terikat, posting + lampiran dalam satu transaksi DB.
+- Data Beban: `ExpenseRegisterService` + `ExpenseRegisterController` (route `transactions.expenses.index/export/reverse/attachments.store`), 14 kolom PRD, filter cari/cabang/tanggal, total dari seluruh hasil filter tanpa beban dibalik, CSV 14 kolom + Status (anti formula injection), pembalikan, bukti. Total register = jumlah debit jurnal beban (diuji).
+- UI: `expense-form.tsx` (halaman sendiri, status lunas/hutang, bukti, reset, EDIT DATA), `data-beban.tsx`, `expense-detail.tsx` diperkaya. Komponen bersama baru `register-table.tsx` (TanStack, kolom lengket, visibilitas kolom) dan `register-dialogs.tsx` (ReverseDialog, EvidenceDialog) untuk 7 halaman Data berikutnya. `expenses.tsx` lama dihapus.
+- Test: `ExpenseTest` 19 test; total 196/196 lulus, `tsc` bersih, build OK, `route:cache` OK. Belum dicoba di browser, belum di-commit.
+- Dev DB: `php artisan migrate`.
+- Langkah berikut: 4.2 Input Pindah Saldo Kas/Bank (11 jenis dari Template Jurnal bagian 8-9, termasuk bayar hutang beban -> perlu keputusan ADR-011) + Data Kas & Bank.
+
+---
+## 2026-11-01 (sesi 15) · Claude (Sonnet 5.5) · Skeleton di SETIAP ganti halaman (koreksi sesi 14)
+- Aturan dari user (jawaban eksplisit): setiap ganti halaman harus ada loading state, dan loading state-nya adalah skeleton, di semua halaman. Sesi 14 terlalu membatasi (mengecualikan filter/pagination dan memakai jeda 150 ms) sehingga banyak perpindahan tanpa skeleton; itu dikoreksi.
+- Kini: skeleton muncul seketika pada setiap kunjungan GET yang mengganti isi halaman (pindah menu, pagination, submit filter), tahan minimal 250 ms agar tidak berkedip, scroll ke atas dulu. Dikecualikan: POST/PATCH/DELETE (tombol punya status sibuk sendiri; kalau tidak, form yang sedang diisi ikut kosong), kunjungan prefetch/cache (instan), partial reload, dan request latar belakang.
+- Cakupan layout: `NavigationLoading` kini juga dipasang di layout auth (Login, Register, lupa/atur ulang sandi, verifikasi) dengan skeleton kartu tengah, selain layout utama (semua halaman aplikasi, termasuk Pengaturan). Halaman Welcome tidak memakai layout apa pun dan tidak dicakup.
+- Bentuk skeleton: auth, dashboard, form, pengaturan, tabel (dipilih dari path tujuan).
+- Verifikasi: `tsc` dan build (lihat hasil sesi). Belum dicoba di browser, belum di-commit.
+
+---
+## 2026-11-01 (sesi 14) · Claude (Sonnet 5.5) · Perbaikan skeleton perpindahan menu
+- Laporan user: penempatan skeleton saat pindah menu terasa salah. Audit `navigation-loading.tsx` menemukan: (1) tampil untuk SETIAP kunjungan Inertia (event `before`): submit filter, pagination, POST/PATCH (posting invoice, simpan baris Template Jurnal, nonaktifkan akun) ikut mengosongkan halaman yang sedang dikerjakan; (2) tanpa jeda sehingga berkedip pada navigasi cepat; (3) overlay `absolute inset-0` dengan skeleton di puncak dan latar 95% transparan: pada halaman panjang yang sudah di-scroll, skeleton berada di luar layar dan konten lama tembus di bawahnya; (4) satu bentuk skeleton tabel untuk semua tujuan dengan lebar 1440px, padahal tujuan bisa dashboard/form/pengaturan dengan lebar berbeda sehingga halaman asli "melompat" saat muncul.
+- Perbaikan: skeleton hanya untuk perpindahan halaman nyata (GET ke path lain; bukan filter/pagination/simpan/prefetch/partial reload/polling) memakai event `start` bukan `before`; tampil setelah 150 ms dan bertahan minimal 250 ms; window di-scroll ke atas sebelum tampil; latar opaque; empat bentuk skeleton sesuai tujuan (dashboard, form, pengaturan, tabel) dengan lebar mendekati halaman asli; `role=status`, `aria-busy`, hormati `prefers-reduced-motion`.
+- Verifikasi: `tsc` bersih, build OK. Tidak ada perubahan PHP. Belum dicoba di browser, belum di-commit.
+
+---
 ## 2026-11-01 (sesi 13) · Claude (Sonnet 5.5) · Langkah 3.5 Dashboard; Langkah 3 selesai
 - `DashboardService` + `DashboardController` ditulis ulang. Enam KPI dari buku besar: Pendapatan dan Laba Bersih (periode), Kas (hanya akun kas/bank), Total Aset, Piutang, Hutang (saldo akhir periode). Filter cabang + periode awal/akhir diterapkan server side ke semua angka; user terikat cabang tidak bisa memperlebar cakupan.
 - Blok: tren pendapatan/beban/laba 12 bulan, tren kas akhir bulan, arus kas per aktivitas, komposisi beban dan aset, kinerja tiap cabang, matriks laba rugi 12 bulan, top 5 piutang (per akhir periode) dan hutang.
@@ -60,6 +99,24 @@ Format entri: tanggal · agent/orang · apa yang dikerjakan · status test · ha
 - Menggantung: lihat CHECKLIST bagian C (customer cepat, terjemahan pesan, pembalikan, urutan, lampiran untuk transaksi lain). Belum di-commit.
 - Dev DB: `php artisan migrate`.
 - Langkah berikut: 3.2 Data Pendapatan (26 kolom persis, cari, filter cabang, bukti, export CSV), lalu 3.3 Jurnal Umum + Buku Besar.
+
+---
+## 2026-11-01 (sesi 11) · Codex · Toggle tema global
+- Menambahkan tombol toggle Light/Dark yang memakai state tema global pada landing page, semua layout autentikasi, dan sidebar aplikasi. Preferensi disimpan di localStorage/cookie dan mengubah kelas `.dark` pada root, sehingga seluruh komponen yang memakai token tema ikut berubah.
+- Default tetap light untuk pengguna baru; pengguna dapat mengubahnya kapan saja tanpa mengubah pengaturan lain.
+- Verifikasi: build, type-check, 196/196 test, serta route cache/clear berhasil. Tidak ada commit.
+
+---
+## 2026-11-01 (sesi 10) · Codex · Landing page terang
+- Mendesain ulang halaman landing (`/`) dengan visual light-first: hero, CTA, preview dashboard ilustratif yang diberi konteks, ringkasan manfaat, dan penutup CTA. Tidak memakai angka contoh sebagai data dashboard aplikasi.
+- Default tampilan untuk pengguna baru kini `light` di hook dan middleware; pilihan tema yang telah tersimpan pengguna tetap dipertahankan.
+- Verifikasi: `npm run build`, `npm run types:check`, `php artisan test --compact` → 196/196 lulus, `php artisan route:cache && php artisan route:clear` berhasil. Belum ada cek visual manual di browser dan tidak ada commit.
+
+---
+## 2026-11-01 (sesi 9) · Codex · Login email/password biasa
+- Halaman `/login` kini hanya menampilkan form email, kata sandi, ingat saya, reset kata sandi, dan pendaftaran; tombol/pemisah passkey dihapus dari halaman login. Teks UI diterjemahkan ke bahasa Indonesia.
+- Dukungan passkey internal tidak dihapus secara global karena masih dipakai halaman Keamanan dan Konfirmasi Password; percobaan menonaktifkannya membuat Wayfinder tidak dapat membangun action yang masih diimpor komponen tersebut. Login biasa tetap tidak menawarkan passkey.
+- Verifikasi: `npm run build`, `php artisan test --compact` → 177/177 lulus, `npm run types:check`, `php artisan route:cache && php artisan route:clear`, dan `git diff --check` berhasil. Tidak ada commit.
 
 ---
 ## 2026-11-01 (sesi 8) · Codex · Langkah 3.1 Invoice: fondasi pajak server

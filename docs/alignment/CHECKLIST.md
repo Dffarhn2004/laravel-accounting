@@ -30,7 +30,7 @@ Terakhir diperbarui: 2026-11-01 (Langkah 0 + Langkah 2 selesai; hardening awal I
 |---|---|---|---|---|---|---|---|
 | Input Invoice | `/transactions/invoices/create` | partial | [x] | [x] | [~] | [~] | [ ] |
 | Import Penjualan (Kasir / Marketplace) | `/inputan/impor` | pending | [x] | [ ] | [ ] | [ ] | [ ] |
-| Input Beban | `/transactions/expenses/create` | partial | [x] | [ ] | [ ] | [ ] | [ ] |
+| Input Beban | `/transactions/expenses/create` | partial | [x] | [x] | [~] | [x] | [ ] |
 | Input Persediaan | `/inputan/persediaan` | pending | [x] | [ ] | [ ] | [ ] | [ ] |
 | Input Pelunasan Piutang | `/transactions/receivables` | partial | [x] | [ ] | [ ] | [ ] | [ ] |
 | Input Pembelian Asset | `/transactions/fixed-assets` | partial | [x] | [ ] | [ ] | [ ] | [ ] |
@@ -43,7 +43,7 @@ Terakhir diperbarui: 2026-11-01 (Langkah 0 + Langkah 2 selesai; hardening awal I
 | Menu | Route sekarang | Halaman | A | B | C | D | E |
 |---|---|---|---|---|---|---|---|
 | Data Pendapatan | `/transactions/invoices` | partial | [x] | [x] | [~] | [x] | [ ] |
-| Data Beban | `/transactions/expenses` | partial | [x] | [ ] | [ ] | [ ] | [ ] |
+| Data Beban | `/transactions/expenses` | partial | [x] | [x] | [~] | [x] | [ ] |
 | Data Persediaan | `/data/d-persediaan` | pending | [x] | [ ] | [ ] | [ ] | [ ] |
 | Data Pelunasan Piutang | `/data/d-piutang` | pending | [x] | [ ] | [ ] | [ ] | [ ] |
 | Data Asset | `/data/d-asset` | pending | [x] | [ ] | [ ] | [ ] | [ ] |
@@ -143,3 +143,11 @@ Terakhir diperbarui: 2026-11-01 (Langkah 0 + Langkah 2 selesai; hardening awal I
 - [ ] Dashboard: 8 kontrol integritas = jurnal seimbang, neraca seimbang, neraca tiap cabang, kas cashflow = kas neraca, laba rugi = laba berjalan neraca, piutang invoice vs buku besar, hutang dokumen vs buku besar, register aset vs buku besar. Tiga terakhir berstatus PERHATIAN (bukan gagal) bila selisih berasal dari saldo awal tanpa rincian dokumen. Konfirmasi daftar 8 kontrol dengan user (PRD tidak merincinya).
 - [ ] Dashboard: hutang outstanding = saldo akun bermodul 'Hutang' di buku besar; top 5 hutang hanya dari Beban (hutang aset/persediaan/pinjaman menyusul Langkah 4-5).
 - [ ] Dashboard: grafik SVG sederhana tanpa pustaka (tanpa Node di hosting). Drilldown rasio/anggaran/piutang per pelanggan menyusul.
+- [ ] Skeleton perpindahan halaman (sesi 14-15) belum dicoba di browser. Aturan dari user: SETIAP ganti halaman harus menampilkan skeleton, di semua halaman (termasuk filter/pagination dan halaman Login). Cek: pindah menu dari halaman yang sudah di-scroll, submit filter, pagination, pindah antar halaman Login/Register, dan pastikan simpan/posting (POST/PATCH) TIDAK mengosongkan halaman. Belum ada test JS (tidak ada test runner front-end); logika murni: `replacesPage()` dan `variantFor()` di `navigation-loading.tsx`.
+- [ ] Input/Data Beban gate C `[~]`: server dan UI dites (`ExpenseTest` 19 test), belum dicoba di browser. Beban dibayar-nanti (Utang Usaha) sudah tercatat sebagai hutang terbuka, tetapi **pelunasannya belum punya UI**: dikerjakan di Input Pindah Saldo Kas/Bank, jenis "Bayar hutang" (Langkah 4.2) dengan keputusan ADR-011 (FIFO per akun vs pencocokan bill). `TransactionPostingService::expensePayment()` sudah ada.
+- [ ] Beban: field vendor (ada di tabel) tidak muncul di form karena tidak ada di PRD; hutang per pemasok menunggu keputusan ADR-011.
+- [ ] Komponen `RegisterTable` + `register-dialogs` dibuat di Data Beban; Data Pendapatan masih memakai tabel buatan sendiri. Pindahkan ke komponen bersama (hindari duplikasi) sebelum 7 halaman Data lain dibuat.
+- [ ] Akun lawan beban ditentukan server dari Template Jurnal bagian 7 (`outflow_payment`), bukan dari browser; Invoice masih menerima akun dari form (`invoice_payment`): samakan perilakunya.
+- [ ] Skeleton untuk menu yang sudah dibangun (sesi 17): sebelumnya hanya menu berjam yang menampilkannya. Cek di browser: klik menu yang sudah jadi (Data Pendapatan, Data Beban, Jurnal Umum, dst.) setelah kursor melintas di atasnya; skeleton harus tampil.
+- [x] Template Jurnal per tab dengan tombol Tambah + dialog (sesi 19, masukan user). 10 tab dalam satu menu, tab aktif disimpan di URL (`?tab=`) tanpa request baru, baris tambah inline dihapus. Perlu dicek di browser. Periksa halaman lain yang masih punya form tambah inline sesuai `10-IMPLEMENTATION-UI-RULES.md` baris 9.
+- [ ] **Header aplikasi berisi kontrol palsu**: dropdown "Semua cabang" dan "Periode berjalan", badge "Periode terbuka", dan tombol "+ Buat transaksi" di `app-sidebar-header.tsx` hanya hiasan (satu opsi, tidak memfilter apa pun, badge selalu hijau). Melanggar aturan "tidak ada kontrol yang pura-pura berfungsi". Pilihan: hapus, atau jadikan filter global sungguhan (cabang + periode terbaca server di semua laporan) dan badge periode dari data tahun buku.

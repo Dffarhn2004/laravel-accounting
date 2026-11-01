@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Expense extends Model
 {
@@ -12,9 +13,10 @@ class Expense extends Model
 
     protected function casts(): array
     {
-        return ['expense_date' => 'date', 'amount' => 'decimal:2'];
+        return ['expense_date' => 'date', 'amount' => 'decimal:2', 'reversed_at' => 'datetime'];
     }
 
+    public function attachments(): MorphMany { return $this->morphMany(Attachment::class, 'attachable'); }
     public function company(): BelongsTo { return $this->belongsTo(Company::class); }
     public function branch(): BelongsTo { return $this->belongsTo(Branch::class); }
     public function vendor(): BelongsTo { return $this->belongsTo(Vendor::class); }

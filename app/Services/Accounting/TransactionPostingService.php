@@ -44,23 +44,66 @@ class TransactionPostingService
             return $payment;
         });
     }
+    /** Next automatic reference for the expense year (BBN-YYYY-00001), shown as "No Trx" in the journal. */
+    public function nextExpenseReference(int $companyId, string $expenseDate): string
+    {
+        $prefix = 'BBN-'.substr($expenseDate, 0, 4).'-';
+        $last = Expense::where('company_id', $companyId)->where('reference', 'like', $prefix.'%')->orderByDesc('reference')->value('reference');
+
+        return $prefix.str_pad((string) ($last ? ((int) substr($last, strlen($prefix)) + 1) : 1), 5, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Post an operating expense (PRD 03 #3). Dr expense account / Cr cash-bank (paid) or Cr payable (open).
+     * Accounts are company-scoped and type-checked: the expense account must be an expense (5xxx),
+     * a payment account an asset, a payable account a liability.
+     */
     public function expense(array $data): Expense
     {
         return DB::transaction(function () use ($data) {
             $this->scope($data);
+            $companyId = $data['company_id'];
+            if (FiscalPeriod::findOrFail($data['fiscal_period_id'])->status !== 'open') {
+                throw new InvalidArgumentException('Cannot post to a closed fiscal period.');
+            }
             $this->unique(Expense::class, $data);
-            if (! isset($data['payment_account_id']) && ! isset($data['payable_account_id'])) {
+            if (empty($data['payment_account_id']) && empty($data['payable_account_id'])) {
                 throw new InvalidArgumentException('Expense requires a payment or payable account.');
             }
+            if (bccomp((string) $data['amount'], '0', 2) <= 0) {
+                throw new InvalidArgumentException('Expense amount must be positive.');
+            }
+
+            $expenseAccount = $this->account($companyId, $data['expense_account_id'], 'expense');
+            $paid = ! empty($data['payment_account_id']);
+            $settlement = $paid
+                ? $this->account($companyId, $data['payment_account_id'], 'asset')
+                : $this->account($companyId, $data['payable_account_id'], 'liability');
+            $amount = bcadd((string) $data['amount'], '0', 2);
+            $reference = ($data['reference'] ?? null) ?: $this->nextExpenseReference($companyId, (string) $data['expense_date']);
+
             $expense = Expense::create([
-                ...collect($data)->except(['payment_account_id', 'payable_account_id'])->all(),
-                'settlement_account_id' => $data['payment_account_id'] ?? $data['payable_account_id'],
-                'status' => isset($data['payment_account_id']) ? 'paid' : 'open',
+                'company_id' => $companyId,
+                'branch_id' => $data['branch_id'],
+                'fiscal_period_id' => $data['fiscal_period_id'],
+                'vendor_id' => $data['vendor_id'] ?? null,
+                'expense_account_id' => $expenseAccount->id,
+                'settlement_account_id' => $settlement->id,
+                'expense_date' => $data['expense_date'],
+                'reference' => $reference,
+                'description' => $data['description'] ?? null,
+                'payment_method' => $data['payment_method'] ?? null,
+                'amount' => $amount,
+                'status' => $paid ? 'paid' : 'open',
+                'idempotency_key' => $data['idempotency_key'],
             ]);
-            $this->post([...$data, 'source_kind' => 'expense', 'reference' => $expense->reference], $expense->id, [
-                ['account_id' => $data['expense_account_id'], 'debit' => $data['amount'], 'credit' => '0'],
-                ['account_id' => $data['payment_account_id'] ?? $data['payable_account_id'], 'debit' => '0', 'credit' => $data['amount']],
+
+            $entry = $this->post([...$data, 'description' => ($data['description'] ?? null) ?: 'Beban '.$expenseAccount->name, 'source_kind' => 'expense', 'reference' => $reference], $expense->id, [
+                ['account_id' => $expenseAccount->id, 'debit' => $amount, 'credit' => '0'],
+                ['account_id' => $settlement->id, 'debit' => '0', 'credit' => $amount],
             ]);
+            $expense->update(['journal_entry_id' => $entry->id]);
+
             return $expense->load('payments');
         });
     }
@@ -389,14 +432,48 @@ class TransactionPostingService
         });
     }
 
-    public function reverseExpense(int $expenseId, array $data): Expense
+    /**
+     * Correct a posted expense by reversing it (the journal is never edited or deleted).
+     * Refused when part of it has already been paid: cancel those payments first.
+     *
+     * @param  array{company_id:int, reason:string, posted_on?:string, created_by?:int}  $data
+     */
+    public function reverseExpense(int|Expense $expense, array $data): Expense
     {
-        return DB::transaction(function () use ($expenseId, $data) {
-            $expense = Expense::where('company_id', $data['company_id'])
-                ->with('journalEntry')
-                ->findOrFail($expenseId);
-            app(JournalReversalService::class)->reverse($expense->journalEntry, $data);
-            $expense->update(['status' => 'reversed']);
+        return DB::transaction(function () use ($expense, $data) {
+            $id = $expense instanceof Expense ? $expense->id : $expense;
+            $expense = Expense::where('company_id', $data['company_id'])->lockForUpdate()->findOrFail($id);
+
+            if ($expense->status === 'reversed') {
+                throw new InvalidArgumentException('Beban sudah dibalik.');
+            }
+            if ($expense->payments()->exists()) {
+                throw new InvalidArgumentException('Beban sudah memiliki pelunasan hutang. Batalkan pelunasan terlebih dahulu.');
+            }
+
+            $postedOn = $data['posted_on'] ?? now()->toDateString();
+            if ($postedOn < $expense->expense_date->toDateString()) {
+                throw new InvalidArgumentException('Tanggal pembalikan tidak boleh sebelum tanggal beban.');
+            }
+            $period = FiscalPeriod::where('company_id', $data['company_id'])->where('status', 'open')
+                ->whereDate('starts_on', '<=', $postedOn)->whereDate('ends_on', '>=', $postedOn)->first();
+            if (! $period) {
+                throw new InvalidArgumentException('Tidak ada tahun buku terbuka untuk tanggal pembalikan.');
+            }
+
+            $reversal = app(JournalReversalService::class)->reverse(
+                JournalEntry::where('company_id', $data['company_id'])->findOrFail($expense->journal_entry_id),
+                [
+                    'posted_on' => $postedOn,
+                    'fiscal_period_id' => $period->id,
+                    'description' => 'Pembalikan beban '.$expense->reference.': '.$data['reason'],
+                    'idempotency_key' => 'expense-reversal-'.$expense->id,
+                    'created_by' => $data['created_by'] ?? null,
+                ],
+            );
+
+            $expense->update(['status' => 'reversed', 'reversal_journal_entry_id' => $reversal->id, 'reversal_reason' => $data['reason'], 'reversed_at' => now()]);
+
             return $expense->fresh();
         });
     }

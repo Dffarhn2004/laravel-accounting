@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { home } from '@/routes';
 import type { AuthLayoutProps } from '@/types';
+import ThemeToggle from '@/components/theme-toggle';
 
 export default function AuthSplitLayout({
     children,
@@ -22,7 +23,7 @@ export default function AuthSplitLayout({
                     {name}
                 </Link>
             </div>
-            <div className="w-full lg:p-8">
+            <div className="relative w-full lg:p-8"><div className="absolute right-5 top-5"><ThemeToggle compact /></div>
                 <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
                     <Link
                         href={home()}
