@@ -1,0 +1,261 @@
+{
+  "version": "2026-11-01",
+  "source": "https://app.profpreneurs.com/",
+  "purpose": "Exact functional sidebar reference, not Laravel route names",
+  "page_count": 43,
+  "navigation": [
+    {
+      "type": "link",
+      "label": "Dashboard",
+      "id": "dashboard",
+      "href": "#/dashboard"
+    },
+    {
+      "type": "group",
+      "label": "System",
+      "items": [
+        {
+          "label": "Panduan Penggunaan",
+          "id": "panduan",
+          "reference_hash": "#/panduan"
+        },
+        {
+          "label": "Master Akun",
+          "id": "master",
+          "reference_hash": "#/master"
+        },
+        {
+          "label": "Template Jurnal",
+          "id": "template",
+          "reference_hash": "#/template"
+        },
+        {
+          "label": "Tutup Buku & Pindah Tahun",
+          "id": "tutup",
+          "reference_hash": "#/tutup"
+        },
+        {
+          "label": "Aktivasi Lisensi",
+          "id": "aktivasi",
+          "reference_hash": "#/aktivasi"
+        },
+        {
+          "label": "Pengaturan & Backup",
+          "id": "setting",
+          "reference_hash": "#/setting"
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "label": "Inputan Transaksi",
+      "items": [
+        {
+          "label": "Input Invoice",
+          "id": "invoice",
+          "reference_hash": "#/invoice"
+        },
+        {
+          "label": "Import Penjualan (Kasir / Marketplace)",
+          "id": "impor",
+          "reference_hash": "#/impor"
+        },
+        {
+          "label": "Input Beban",
+          "id": "beban",
+          "reference_hash": "#/beban"
+        },
+        {
+          "label": "Input Persediaan",
+          "id": "persediaan",
+          "reference_hash": "#/persediaan"
+        },
+        {
+          "label": "Input Pelunasan Piutang",
+          "id": "piutang",
+          "reference_hash": "#/piutang"
+        },
+        {
+          "label": "Input Pembelian Asset",
+          "id": "asset",
+          "reference_hash": "#/asset"
+        },
+        {
+          "label": "Input Pindah Saldo Kas/Bank",
+          "id": "kasbank",
+          "reference_hash": "#/kasbank"
+        },
+        {
+          "label": "Input Saldo Neraca Akhir Periode",
+          "id": "saldo",
+          "reference_hash": "#/saldo"
+        },
+        {
+          "label": "Input Setoran Modal Awal",
+          "id": "modal",
+          "reference_hash": "#/modal"
+        },
+        {
+          "label": "Input Jurnal Manual",
+          "id": "jm",
+          "reference_hash": "#/jm"
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "label": "Data Transaksi",
+      "items": [
+        {
+          "label": "Data Pendapatan",
+          "id": "d-pendapatan",
+          "reference_hash": "#/d-pendapatan"
+        },
+        {
+          "label": "Data Beban",
+          "id": "d-beban",
+          "reference_hash": "#/d-beban"
+        },
+        {
+          "label": "Data Persediaan",
+          "id": "d-persediaan",
+          "reference_hash": "#/d-persediaan"
+        },
+        {
+          "label": "Data Pelunasan Piutang",
+          "id": "d-piutang",
+          "reference_hash": "#/d-piutang"
+        },
+        {
+          "label": "Data Asset",
+          "id": "d-asset",
+          "reference_hash": "#/d-asset"
+        },
+        {
+          "label": "Simulasi & Output D&A",
+          "id": "simulasi",
+          "reference_hash": "#/simulasi"
+        },
+        {
+          "label": "Data Kas & Bank",
+          "id": "d-kasbank",
+          "reference_hash": "#/d-kasbank"
+        },
+        {
+          "label": "Data Modal Awal",
+          "id": "d-modal",
+          "reference_hash": "#/d-modal"
+        },
+        {
+          "label": "Data Jurnal Manual",
+          "id": "d-jm",
+          "reference_hash": "#/d-jm"
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "label": "Laporan",
+      "items": [
+        {
+          "label": "Jurnal Umum",
+          "id": "ju",
+          "reference_hash": "#/ju"
+        },
+        {
+          "label": "Laporan Laba Rugi per Cabang",
+          "id": "lr-cabang",
+          "reference_hash": "#/lr-cabang"
+        },
+        {
+          "label": "Laporan Laba Rugi Konsolidasi",
+          "id": "lr",
+          "reference_hash": "#/lr"
+        },
+        {
+          "label": "Laporan Neraca",
+          "id": "neraca",
+          "reference_hash": "#/neraca"
+        },
+        {
+          "label": "Laporan Cashflow",
+          "id": "cashflow",
+          "reference_hash": "#/cashflow"
+        },
+        {
+          "label": "Laporan Buku Besar",
+          "id": "bb",
+          "reference_hash": "#/bb"
+        },
+        {
+          "label": "Laporan Persediaan",
+          "id": "lap-persediaan",
+          "reference_hash": "#/lap-persediaan"
+        },
+        {
+          "label": "Laporan Piutang",
+          "id": "lap-piutang",
+          "reference_hash": "#/lap-piutang"
+        },
+        {
+          "label": "Laporan Daftar Hutang",
+          "id": "lap-hutang",
+          "reference_hash": "#/lap-hutang"
+        },
+        {
+          "label": "Laporan Pajak",
+          "id": "lap-pajak",
+          "reference_hash": "#/lap-pajak"
+        },
+        {
+          "label": "Laporan Daftar Asset",
+          "id": "lap-asset",
+          "reference_hash": "#/lap-asset"
+        },
+        {
+          "label": "Analisis Rasio & Kesehatan Bisnis",
+          "id": "rasio",
+          "reference_hash": "#/rasio"
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "label": "Anggaran",
+      "items": [
+        {
+          "label": "Input Anggaran",
+          "id": "ang-input",
+          "reference_hash": "#/ang-input"
+        },
+        {
+          "label": "Data Anggaran",
+          "id": "ang-data",
+          "reference_hash": "#/ang-data"
+        },
+        {
+          "label": "Rekap Anggaran",
+          "id": "ang-rekap",
+          "reference_hash": "#/ang-rekap"
+        },
+        {
+          "label": "Laporan Kinerja Anggaran",
+          "id": "ang-kinerja",
+          "reference_hash": "#/ang-kinerja"
+        }
+      ]
+    },
+    {
+      "type": "link",
+      "label": "Bagi Hasil & Dividen",
+      "id": "dividen",
+      "href": "#/dividen"
+    },
+    {
+      "type": "action",
+      "label": "Logout",
+      "id": "front",
+      "href": "#/front"
+    }
+  ]
+}
