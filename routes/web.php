@@ -38,6 +38,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('transactions/invoices/{invoice}', [TransactionController::class, 'showInvoice'])->name('transactions.invoices.show');
     Route::get('transactions/expenses', [TransactionController::class, 'expenses'])->name('transactions.expenses.index');
     Route::get('transactions/expenses/create', [TransactionController::class, 'createExpense'])->name('transactions.expenses.create');
+    Route::get('transactions/expenses/{expense}', [TransactionController::class, 'showExpense'])->name('transactions.expenses.show');
     Route::get('transactions/receivables', [TransactionController::class, 'receivables'])->name('transactions.receivables.index');
     Route::get('transactions/cash-bank', [TreasuryController::class, 'index'])->name('transactions.cash-bank.index');
     Route::get('transactions/fixed-assets', [FixedAssetController::class, 'index'])->name('transactions.fixed-assets.index');

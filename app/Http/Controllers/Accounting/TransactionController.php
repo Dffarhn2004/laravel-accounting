@@ -72,7 +72,13 @@ class TransactionController extends Controller
             'branches' => Branch::query()->where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'customers' => Customer::query()->where('company_id', $companyId)->orderBy('name')->get(['id', 'name']),
             'fiscalPeriods' => FiscalPeriod::query()->where('company_id', $companyId)->where('status', 'open')->orderBy('starts_on')->get(['id', 'starts_on', 'ends_on']),
-            'invoices' => Invoice::query()->with('customer')->where('company_id', $companyId)->latest('issued_on')->paginate(25)->withQueryString(),
+            'filters' => $request->only(['search', 'status', 'from', 'to']),
+            'invoices' => Invoice::query()->with('customer')->where('company_id', $companyId)
+                ->when($request->string('search')->trim()->value(), fn ($query, $search) => $query->where(function ($q) use ($search) { $q->where('invoice_number', 'like', '%'.$search.'%')->orWhereHas('customer', fn ($customer) => $customer->where('name', 'like', '%'.$search.'%')); }))
+                ->when($request->string('status')->trim()->value(), fn ($query, $status) => $query->where('status', $status))
+                ->when($request->date('from'), fn ($query, $date) => $query->whereDate('issued_on', '>=', $date))
+                ->when($request->date('to'), fn ($query, $date) => $query->whereDate('issued_on', '<=', $date))
+                ->latest('issued_on')->paginate(25)->withQueryString(),
         ]);
     }
 
@@ -95,10 +101,16 @@ class TransactionController extends Controller
 
         return Inertia::render('accounting/expenses', [
             'showForm' => false,
-            'expenses' => Expense::query()->with('vendor')->where('company_id', $companyId)->latest('expense_date')->paginate(25)->withQueryString(),
+            'expenses' => Expense::query()->with('vendor')->where('company_id', $companyId)
+                ->when($request->string('search')->trim()->value(), fn ($query, $search) => $query->where(function ($q) use ($search) { $q->where('reference', 'like', '%'.$search.'%')->orWhereHas('vendor', fn ($vendor) => $vendor->where('name', 'like', '%'.$search.'%')); }))
+                ->when($request->string('status')->trim()->value(), fn ($query, $status) => $query->where('status', $status))
+                ->when($request->date('from'), fn ($query, $date) => $query->whereDate('expense_date', '>=', $date))
+                ->when($request->date('to'), fn ($query, $date) => $query->whereDate('expense_date', '<=', $date))
+                ->latest('expense_date')->paginate(25)->withQueryString(),
             'accounts' => Account::query()->where('company_id', $companyId)->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name', 'type']),
             'branches' => Branch::query()->where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'fiscalPeriods' => FiscalPeriod::query()->where('company_id', $companyId)->where('status', 'open')->orderBy('starts_on')->get(['id', 'starts_on', 'ends_on']),
+            'filters' => $request->only(['search', 'status', 'from', 'to']),
         ]);
     }
 
@@ -111,6 +123,21 @@ class TransactionController extends Controller
             'accounts' => Account::query()->where('company_id', $companyId)->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name', 'type']),
             'branches' => Branch::query()->where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'fiscalPeriods' => FiscalPeriod::query()->where('company_id', $companyId)->where('status', 'open')->orderBy('starts_on')->get(['id', 'starts_on', 'ends_on']),
+        ]);
+    }
+
+    public function showExpense(Request $request, Expense $expense)
+    {
+        abort_unless($expense->company_id === $request->user()?->company_id, 404);
+
+        return Inertia::render('accounting/expense-detail', [
+            'expense' => $expense->load(['vendor', 'payments']),
+            'journalEntry' => JournalEntry::query()
+                ->where('company_id', $expense->company_id)
+                ->where('source_type', TransactionPostingService::class)
+                ->where('source_id', (string) $expense->id)
+                ->with('lines.account')
+                ->first(),
         ]);
     }
 

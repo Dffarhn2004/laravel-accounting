@@ -19,7 +19,8 @@ class LedgerController extends Controller
                 $query->when($user?->company_id, fn ($entry, $id) => $entry->where('company_id', $id))
                     ->when($user?->branch_id, fn ($entry, $id) => $entry->where('branch_id', $id))
                     ->when($request->date('from'), fn ($entry, $date) => $entry->whereDate('posted_on', '>=', $date))
-                    ->when($request->date('to'), fn ($entry, $date) => $entry->whereDate('posted_on', '<=', $date));
+                    ->when($request->date('to'), fn ($entry, $date) => $entry->whereDate('posted_on', '<=', $date))
+                    ->when($request->string('search')->trim()->value(), fn ($entry, $search) => $entry->where('description', 'like', '%'.$search.'%'));
             })
             ->when($request->integer('account_id'), fn ($query, $id) => $query->where('account_id', $id))
             ->latest()
@@ -33,7 +34,7 @@ class LedgerController extends Controller
                 ->where('is_active', true)
                 ->orderBy('code')
                 ->get(['id', 'code', 'name']),
-            'filters' => $request->only(['account_id', 'from', 'to']),
+            'filters' => $request->only(['account_id', 'from', 'to', 'search']),
         ]);
     }
 }

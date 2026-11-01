@@ -18,13 +18,14 @@ class JournalController extends Controller
             ->when($user?->branch_id, fn ($query, $id) => $query->where('branch_id', $id))
             ->when($request->date('from'), fn ($query, $date) => $query->whereDate('posted_on', '>=', $date))
             ->when($request->date('to'), fn ($query, $date) => $query->whereDate('posted_on', '<=', $date))
+            ->when($request->string('search')->trim()->value(), fn ($query, $search) => $query->where('description', 'like', '%'.$search.'%'))
             ->latest('posted_on')
             ->paginate(25)
             ->withQueryString();
 
         return Inertia::render('accounting/journal', [
             'entries' => $entries,
-            'filters' => $request->only(['from', 'to']),
+            'filters' => $request->only(['from', 'to', 'search']),
         ]);
     }
 }
