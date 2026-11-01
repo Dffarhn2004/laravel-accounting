@@ -269,6 +269,8 @@ class OpeningPositionService
             'description' => $description,
             'idempotency_key' => $key,
             'source_type' => OpeningBalance::class,
+            'source_kind' => 'opening',
+            'reference' => $description,
             'source_id' => (string) $opening->id,
             'created_by' => $data['created_by'] ?? null,
             'lines' => $journalLines,

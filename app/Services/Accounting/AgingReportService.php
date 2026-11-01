@@ -18,6 +18,7 @@ class AgingReportService
             ->when($filters['company_id'] ?? null, fn ($q, $id) => $q->where('company_id', $id))
             ->when($filters['branch_id'] ?? null, fn ($q, $id) => $q->where('branch_id', $id))
             ->whereDate('issued_on', '<=', $asOf)
+            ->where('status', '!=', 'reversed')
             ->get()
             ->map(fn (Invoice $invoice) => $this->row(
                 $invoice->invoice_number,

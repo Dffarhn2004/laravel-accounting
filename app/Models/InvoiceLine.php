@@ -11,8 +11,9 @@ class InvoiceLine extends Model
 
     protected function casts(): array
     {
-        return ['quantity' => 'decimal:2', 'unit_price' => 'decimal:2', 'line_total' => 'decimal:2'];
+        return ['quantity' => 'decimal:2', 'unit_price' => 'decimal:2', 'discount_percent' => 'decimal:2', 'line_total' => 'decimal:2'];
     }
 
     public function invoice(): BelongsTo { return $this->belongsTo(Invoice::class); }
+    public function revenueAccount(): BelongsTo { return $this->belongsTo(Account::class, 'revenue_account_id'); }
 }

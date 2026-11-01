@@ -55,6 +55,8 @@ class FixedAssetService
                 'posted_on' => $data['acquired_on'],
                 'description' => $data['description'] ?? 'Fixed asset acquisition',
                 'source_type' => self::class,
+                'source_kind' => 'asset',
+                'reference' => $asset->code,
                 'source_id' => (string) $asset->id,
                 'lines' => [
                     ['account_id' => $data['asset_account_id'], 'debit' => $data['cost'], 'credit' => '0'],
@@ -112,7 +114,7 @@ class FixedAssetService
                 'company_id' => $asset->company_id, 'branch_id' => $asset->branch_id,
                 'fiscal_period_id' => $period->id, 'posted_on' => $month.'-01',
                 'description' => 'Depreciation: '.$asset->name, 'idempotency_key' => $idempotencyKey,
-                'source_type' => self::class, 'source_id' => (string) $posting->id,
+                'source_type' => self::class, 'source_kind' => 'depreciation', 'reference' => $asset->code, 'source_id' => (string) $posting->id,
                 'lines' => [
                     ['account_id' => $asset->depreciation_expense_account_id, 'debit' => $posting->amount, 'credit' => '0'],
                     ['account_id' => $asset->accumulated_depreciation_account_id, 'debit' => '0', 'credit' => $posting->amount],

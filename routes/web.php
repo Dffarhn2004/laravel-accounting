@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
+use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\Accounting\LedgerController;
 use App\Http\Controllers\Accounting\TransactionController;
 use App\Http\Controllers\Accounting\FixedAssetController;
@@ -9,6 +9,8 @@ use App\Http\Controllers\Accounting\JournalController;
 use App\Http\Controllers\Accounting\ReportController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PendingPageController;
+use App\Http\Controllers\Accounting\AttachmentController;
+use App\Http\Controllers\Accounting\RevenueRegisterController;
 use App\Http\Controllers\Accounting\OpeningPositionController;
 use App\Http\Controllers\Accounting\TemplateController;
 use App\Http\Controllers\Accounting\InventoryController;
@@ -65,9 +67,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('master/vendors', [MasterDataController::class, 'vendors'])->name('master.vendors');
     Route::get('master/accounts-cash', [MasterDataController::class, 'cashAccounts'])->name('master.accounts-cash');
     Route::get('master/products', [MasterDataController::class, 'products'])->name('master.products');
-    Route::get('transactions/invoices', [TransactionController::class, 'invoices'])->name('transactions.invoices.index');
+    Route::get('transactions/invoices', [RevenueRegisterController::class, 'index'])->name('transactions.invoices.index');
+    Route::get('transactions/invoices/export', [RevenueRegisterController::class, 'export'])->name('transactions.invoices.export');
+    Route::post('transactions/invoices/{invoice}/reverse', [RevenueRegisterController::class, 'reverse'])->name('transactions.invoices.reverse');
+    Route::post('transactions/invoices/{invoice}/attachments', [RevenueRegisterController::class, 'attach'])->name('transactions.invoices.attachments.store');
+    Route::delete('attachments/{attachment}', [AttachmentController::class, 'destroy'])->name('attachments.destroy');
     Route::get('transactions/invoices/create', [TransactionController::class, 'createInvoice'])->name('transactions.invoices.create');
     Route::get('transactions/invoices/{invoice}', [TransactionController::class, 'showInvoice'])->name('transactions.invoices.show');
+    Route::get('transactions/invoices/{invoice}/print', [TransactionController::class, 'printInvoice'])->name('transactions.invoices.print');
+    Route::get('attachments/{attachment}', [AttachmentController::class, 'show'])->name('attachments.show');
     Route::get('transactions/expenses', [TransactionController::class, 'expenses'])->name('transactions.expenses.index');
     Route::get('transactions/expenses/create', [TransactionController::class, 'createExpense'])->name('transactions.expenses.create');
     Route::get('transactions/expenses/{expense}', [TransactionController::class, 'showExpense'])->name('transactions.expenses.show');
@@ -78,6 +86,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('transactions/fixed-assets/{asset}/depreciate', [FixedAssetController::class, 'depreciate'])->name('transactions.fixed-assets.depreciate');
     Route::get('accounting/journal', [JournalController::class, 'index'])->name('accounting.journal');
     Route::get('accounting/ledger', [LedgerController::class, 'index'])->name('accounting.ledger');
+    Route::get('accounting/ledger/export', [LedgerController::class, 'export'])->name('accounting.ledger.export');
+    Route::get('accounting/journals/export', [JournalController::class, 'export'])->name('accounting.journals.export');
     Route::get('accounting/opening-balances', [OpeningBalanceController::class, 'create'])->name('accounting.opening-balances.create');
     Route::post('accounting/opening-balances', [OpeningBalanceController::class, 'store'])->name('accounting.opening-balances.store');
     Route::get('accounting/closing', [ClosingController::class, 'index'])->name('accounting.closing.index');
@@ -92,6 +102,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('accounting/reports', [ReportController::class, 'index'])->name('accounting.reports');
     Route::get('reports/profit-loss', [ReportController::class, 'profitLoss'])->name('reports.profit-loss');
     Route::get('reports/balance-sheet', [ReportController::class, 'balanceSheet'])->name('reports.balance-sheet');
+    Route::get('reports/branch-profit-loss', [ReportController::class, 'branchProfitLoss'])->name('reports.branch-profit-loss');
+    Route::get('reports/cash-flow', [ReportController::class, 'cashFlow'])->name('reports.cash-flow');
     Route::get('accounting/inventory', [InventoryController::class, 'index'])->name('accounting.inventory');
     Route::get('accounting/fixed-assets', [FixedAssetController::class, 'index'])->name('accounting.fixed-assets');
     Route::get('accounting/aging', [AgingController::class, 'index'])->name('accounting.aging');
@@ -110,25 +122,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('accounting/manual-journal', [ManualJournalController::class, 'create'])->name('accounting.manual-journal.create');
     Route::post('accounting/manual-journal', [ManualJournalController::class, 'store'])->name('accounting.manual-journal.store');
 
-    Route::get('/modules/{section}', function (string $section) {
-        abort_unless(in_array($section, [
-            'master', 'transaksi', 'data', 'laporan', 'anggaran', 'dividen',
-        ], true), 404);
-
-        $redirects = [
-            'master' => 'accounting.master-data',
-            'transaksi' => 'accounting.transactions',
-            'data' => 'accounting.transactions',
-            'laporan' => 'accounting.reports',
-            'anggaran' => 'accounting.budgets',
-        ];
-
-        if (isset($redirects[$section])) {
-            return to_route($redirects[$section]);
-        }
-
-        return Inertia::render('modules/show', ['section' => $section]);
-    })->name('modules.show');
+    Route::get('/modules/{section}', [ModuleController::class, 'show'])->name('modules.show');
 
     Route::get('/accounting/journals', [JournalController::class, 'index'])
         ->name('accounting.journals.index');

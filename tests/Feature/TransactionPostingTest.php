@@ -84,6 +84,51 @@ class TransactionPostingTest extends TestCase
         ]);
     }
 
+    public function test_invoice_service_rejects_an_account_from_another_company(): void
+    {
+        [$company, $branch, $period] = $this->foundation();
+        $other = Company::create(['name' => 'Other Co', 'code' => 'OTHER-ACCOUNT']);
+        $customer = $company->customers()->create(['name' => 'Buyer', 'code' => 'BUY-ACCOUNT']);
+        $ar = $company->accounts()->create(['code' => '1200', 'name' => 'AR', 'type' => 'asset']);
+        $otherRevenue = $other->accounts()->create(['code' => '4000', 'name' => 'Revenue', 'type' => 'income']);
+
+        $this->expectException(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+        app(TransactionPostingService::class)->invoice([
+            'company_id' => $company->id, 'branch_id' => $branch->id, 'fiscal_period_id' => $period->id,
+            'customer_id' => $customer->id, 'invoice_number' => 'INV-CROSS-ACCOUNT', 'issued_on' => '2026-01-10',
+            'receivable_account_id' => $ar->id, 'revenue_account_id' => $otherRevenue->id,
+            'idempotency_key' => 'invoice-cross-account', 'lines' => [['description' => 'Service', 'quantity' => '1', 'unit_price' => '100']],
+        ]);
+    }
+
+    public function test_invoice_posts_discounted_dpp_and_vat_with_a_balanced_journal(): void
+    {
+        [$company, $branch, $period] = $this->foundation();
+        $customer = $company->customers()->create(['name' => 'Buyer', 'code' => 'BUY-TAX']);
+        $ar = $company->accounts()->create(['code' => '1200', 'name' => 'AR', 'type' => 'asset']);
+        $revenue = $company->accounts()->create(['code' => '4000', 'name' => 'Revenue', 'type' => 'income']);
+        $vat = $company->accounts()->create(['code' => '2301', 'name' => 'VAT Output', 'type' => 'liability']);
+
+        $invoice = app(TransactionPostingService::class)->invoice([
+            'company_id' => $company->id, 'branch_id' => $branch->id, 'fiscal_period_id' => $period->id,
+            'customer_id' => $customer->id, 'invoice_number' => 'INV-TAX', 'issued_on' => '2026-01-10',
+            'receivable_account_id' => $ar->id, 'revenue_account_id' => $revenue->id,
+            'vat_enabled' => true, 'vat_rate' => '11', 'vat_output_account_id' => $vat->id, 'pph23_rate' => '2',
+            'idempotency_key' => 'invoice-tax', 'lines' => [['description' => 'Service', 'quantity' => '2', 'unit_price' => '100000', 'discount_percent' => '10']],
+        ]);
+
+        $this->assertSame('180000.00', $invoice->dpp);
+        $this->assertSame('19800.00', $invoice->vat_amount);
+        $this->assertSame('199800.00', $invoice->total);
+        $this->assertSame('3600.00', $invoice->pph23_amount);
+        $this->assertSame('180000.00', $invoice->lines()->first()->line_total);
+        $entry = JournalEntry::where('source_id', (string) $invoice->id)->with('lines')->firstOrFail();
+        $debits = $entry->lines->reduce(fn (string $sum, $line) => bcadd($sum, (string) $line->debit, 2), '0.00');
+        $credits = $entry->lines->reduce(fn (string $sum, $line) => bcadd($sum, (string) $line->credit, 2), '0.00');
+        $this->assertSame('199800.00', $debits);
+        $this->assertSame('199800.00', $credits);
+    }
+
     public function test_full_invoice_settlement_marks_invoice_paid(): void
     {
         [$company, $branch, $period] = $this->foundation();

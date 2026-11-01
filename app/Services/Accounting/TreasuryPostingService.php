@@ -38,6 +38,7 @@ class TreasuryPostingService
                 'posted_on' => $data['posted_on'],
                 'description' => $data['description'] ?? 'Opening balance',
                 'source_type' => self::class,
+                'source_kind' => 'opening',
                 'source_id' => (string) $opening->id,
                 'lines' => $data['lines'],
             ]);
@@ -63,6 +64,7 @@ class TreasuryPostingService
                 'posted_on' => $data['posted_on'],
                 'description' => $data['description'] ?? 'Cash movement',
                 'source_type' => self::class,
+                'source_kind' => 'treasury',
                 'source_id' => (string) $transaction->id,
                 'lines' => $data['lines'],
             ]);
@@ -103,6 +105,7 @@ class TreasuryPostingService
                 'posted_on' => $data['posted_on'],
                 'description' => $data['description'] ?? 'Cash transfer',
                 'source_type' => self::class,
+                'source_kind' => 'treasury',
                 'source_id' => (string) $transaction->id,
                 'lines' => [
                     ['account_id' => $data['to_account_id'], 'debit' => $data['amount'], 'credit' => '0'],

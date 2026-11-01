@@ -6,14 +6,14 @@ Gate (dari `reference-catatrapi/09-PARITY-CHECKLIST.md`): **A** navigasi · **B*
 
 Kolom *Halaman*: `partial` = ada halaman lama yang menutupi sebagian PRD (parity belum terverifikasi); `pending` = belum dibangun ('Belum tersedia'). Saat sebuah halaman lulus gate, update juga `config/navigation.php`.
 
-Terakhir diperbarui: 2026-11-01 (Langkah 0 + Langkah 2.1 sampai 2.4)
+Terakhir diperbarui: 2026-11-01 (Langkah 0 + Langkah 2 selesai; hardening awal Invoice)
 
 ## A. Per halaman (43)
 
 ### Dashboard
 | Menu | Route sekarang | Halaman | A | B | C | D | E |
 |---|---|---|---|---|---|---|---|
-| Dashboard | `/dashboard` | partial | [x] | [ ] | [ ] | [ ] | [ ] |
+| Dashboard | `/dashboard` | partial | [x] | [~] | [~] | [x] | [ ] |
 
 ### System (6) — spek: `reference-catatrapi/02-SYSTEM.md`
 | Menu | Route sekarang | Halaman | A | B | C | D | E |
@@ -23,12 +23,12 @@ Terakhir diperbarui: 2026-11-01 (Langkah 0 + Langkah 2.1 sampai 2.4)
 | Template Jurnal | `/system/template` | partial | [x] | [x] | [ ] | [ ] | [ ] |
 | Tutup Buku & Pindah Tahun | `/accounting/closing` | partial | [x] | [ ] | [ ] | [ ] | [ ] |
 | Aktivasi Lisensi | `/system/aktivasi` | pending | [x] | [ ] | [ ] | [ ] | [ ] |
-| Pengaturan & Backup | `/settings/company` | partial | [x] | [ ] | [ ] | [ ] | [ ] |
+| Pengaturan & Backup | `/settings/company` | partial | [x] | [x] | [ ] | [ ] | [ ] |
 
 ### Inputan Transaksi (10) — spek: `reference-catatrapi/03-INPUTAN-TRANSAKSI.md`
 | Menu | Route sekarang | Halaman | A | B | C | D | E |
 |---|---|---|---|---|---|---|---|
-| Input Invoice | `/transactions/invoices/create` | partial | [x] | [ ] | [ ] | [ ] | [ ] |
+| Input Invoice | `/transactions/invoices/create` | partial | [x] | [x] | [~] | [~] | [ ] |
 | Import Penjualan (Kasir / Marketplace) | `/inputan/impor` | pending | [x] | [ ] | [ ] | [ ] | [ ] |
 | Input Beban | `/transactions/expenses/create` | partial | [x] | [ ] | [ ] | [ ] | [ ] |
 | Input Persediaan | `/inputan/persediaan` | pending | [x] | [ ] | [ ] | [ ] | [ ] |
@@ -42,7 +42,7 @@ Terakhir diperbarui: 2026-11-01 (Langkah 0 + Langkah 2.1 sampai 2.4)
 ### Data Transaksi (9) — spek: `reference-catatrapi/04-DATA-TRANSAKSI.md`
 | Menu | Route sekarang | Halaman | A | B | C | D | E |
 |---|---|---|---|---|---|---|---|
-| Data Pendapatan | `/transactions/invoices` | partial | [x] | [ ] | [ ] | [ ] | [ ] |
+| Data Pendapatan | `/transactions/invoices` | partial | [x] | [x] | [~] | [x] | [ ] |
 | Data Beban | `/transactions/expenses` | partial | [x] | [ ] | [ ] | [ ] | [ ] |
 | Data Persediaan | `/data/d-persediaan` | pending | [x] | [ ] | [ ] | [ ] | [ ] |
 | Data Pelunasan Piutang | `/data/d-piutang` | pending | [x] | [ ] | [ ] | [ ] | [ ] |
@@ -55,12 +55,12 @@ Terakhir diperbarui: 2026-11-01 (Langkah 0 + Langkah 2.1 sampai 2.4)
 ### Laporan (12) — spek: `reference-catatrapi/05-LAPORAN.md`
 | Menu | Route sekarang | Halaman | A | B | C | D | E |
 |---|---|---|---|---|---|---|---|
-| Jurnal Umum | `/accounting/journals` | partial | [x] | [ ] | [ ] | [ ] | [ ] |
-| Laporan Laba Rugi per Cabang | `/laporan/lr-cabang` | pending | [x] | [ ] | [ ] | [ ] | [ ] |
-| Laporan Laba Rugi Konsolidasi | `/reports/profit-loss` | partial | [x] | [ ] | [ ] | [ ] | [ ] |
-| Laporan Neraca | `/reports/balance-sheet` | partial | [x] | [ ] | [ ] | [ ] | [ ] |
-| Laporan Cashflow | `/laporan/cashflow` | pending | [x] | [ ] | [ ] | [ ] | [ ] |
-| Laporan Buku Besar | `/accounting/ledger` | partial | [x] | [ ] | [ ] | [ ] | [ ] |
+| Jurnal Umum | `/accounting/journals` | partial | [x] | [x] | [~] | [x] | [ ] |
+| Laporan Laba Rugi per Cabang | `/reports/branch-profit-loss` | partial | [x] | [x] | [~] | [x] | [ ] |
+| Laporan Laba Rugi Konsolidasi | `/reports/profit-loss` | partial | [x] | [x] | [~] | [x] | [ ] |
+| Laporan Neraca | `/reports/balance-sheet` | partial | [x] | [x] | [~] | [x] | [ ] |
+| Laporan Cashflow | `/reports/cash-flow` | partial | [x] | [x] | [~] | [x] | [ ] |
+| Laporan Buku Besar | `/accounting/ledger` | partial | [x] | [x] | [~] | [x] | [ ] |
 | Laporan Persediaan | `/accounting/inventory` | partial | [x] | [ ] | [ ] | [ ] | [ ] |
 | Laporan Piutang | `/accounting/aging` | partial | [x] | [ ] | [ ] | [ ] | [ ] |
 | Laporan Daftar Hutang | `/laporan/lap-hutang` | pending | [x] | [ ] | [ ] | [ ] | [ ] |
@@ -85,13 +85,13 @@ Terakhir diperbarui: 2026-11-01 (Langkah 0 + Langkah 2.1 sampai 2.4)
 - [x] Aksi `POST /logout` (Fortify) di sidebar, dites di `NavigationContractTest`
 
 ## B. Gap kritis dari audit (09-PARITY-CHECKLIST), harus ditutup
-- [ ] CRITICAL: KPI 'Kas & Setara Kas' hanya akun kas/bank (bukan agregat aset), `FinancialReportService`
+- [x] CRITICAL: KPI 'Kas & Setara Kas' hanya akun kas/bank, bukan agregat aset (`DashboardService`, `DashboardReportingTest`)
 - [ ] CRITICAL: 19 rasio nyata, hapus placeholder 'Ratio 9-22', `FinancialRatioService`
 - [ ] CRITICAL: Health score dari 19 rasio, bukan balance jurnal, `HealthScoreService`
 - [ ] CRITICAL: Tutup buku carry-forward saldo/AR/AP/stok/aset + arsip JSON, `ClosingController`
 - [ ] HIGH: Invoice lengkap: diskon, pendapatan lain (max 3), PPN, PPh23, uang muka, cetak, bukti (max 5), max 15 baris produk
-- [ ] HIGH: LR & Neraca hierarkis per akun, matriks Jan-Des, kolom per cabang
-- [ ] HIGH: Dashboard filter global cabang+periode, semua blok terisi data nyata (bukan empty state)
+- [x] HIGH: LR & Neraca hierarkis per akun, matriks Jan-Des, kolom per cabang (Langkah 3.4, `FinancialStatementsTest`)
+- [x] HIGH: Dashboard filter global cabang+periode; blok terisi data nyata (blok yang bergantung Langkah 7 ditandai 'Belum tersedia', bukan angka palsu)
 - [ ] HIGH: UI input persediaan (masuk/keluar) di atas `InventoryPostingService`
 - [ ] HIGH: Anggaran Qty x Tarif per kegiatan per bulan; Input/Data/Rekap/Kinerja terpisah
 - [x] MEDIUM: COA seed lengkap (73 akun, 45 akun neraca) - `ReferenceChartOfAccounts`, dites di `MasterAccountTest`
@@ -111,3 +111,35 @@ Terakhir diperbarui: 2026-11-01 (Langkah 0 + Langkah 2.1 sampai 2.4)
 - [ ] Setoran Modal Awal (gate C `[~]`): aset cut-off belum masuk register aset (`fixed_assets`); datanya (tanggal perolehan, umur, akumulasi) sudah disimpan di `opening_balance_lines.meta`. Selesaikan di Langkah 5.
 - [ ] Halaman lama `/accounting/opening-balances` masih ada (jurnal generik) tapi sudah tunduk pada eksklusivitas; tidak lagi ada di sidebar. Putuskan kapan dihapus/dialihkan.
 - [ ] Koreksi saldo awal (reversal + posting ulang) belum ada UI; saat ini hanya terkunci dengan pesan.
+- [ ] Pengaturan & Backup: identitas usaha, rekening invoice, dan default PPN/PPh23 tersimpan dan dites. Backup/restore, data contoh, dan reset tetap menunggu ADR-006; tarif hanya konfigurasi usaha dan belum dipakai Input Invoice (ADR-008).
+- [ ] Input Invoice gate C `[~]`/D `[~]`: server terbukti lewat `InvoiceInputTest` (13 test), tetapi form belum dicoba di browser dan alur ke laporan (JU/BB/LR/Neraca/Dashboard) belum ada; centang penuh setelah Langkah 3.3-3.5.
+- [ ] Invoice: customer harus sudah ada di master (belum ada tambah customer cepat dari form).
+- [ ] Invoice: pesan kesalahan bisnis dari `TransactionPostingService` masih berbahasa Inggris; terjemahkan.
+- [ ] Invoice: belum ada koreksi/pembalikan dari UI (reversal + posting ulang); edit/hapus posted harus lewat pembalikan (ADR-010).
+- [ ] Invoice: field "urutan" di PRD belum dipahami (tidak ada di UI); konfirmasi dengan user.
+- [ ] Lampiran (`AttachmentService`, tabel `attachments`) siap dipakai Beban, Persediaan, Piutang, Aset, Kas/Bank, Modal, Jurnal Manual; belum dipasang di sana. Perlu juga hapus/tambah lampiran dari Data Pendapatan.
+- [ ] PPh23: baru estimasi di invoice. Pencatatan saat pelanggan memotong (debit kas neto + 1404 PPh23 Dibayar di Muka, kredit piutang bruto) dikerjakan di Input Pelunasan Piutang (Langkah 4).
+- [ ] Diskon dibukukan ke akun 5103 Beban Discount (sesuai kolom referensi Data Pendapatan). Mode lama (tanpa akun diskon, pendapatan netto) masih didukung service untuk kompatibilitas.
+- [ ] Data Pendapatan gate C `[~]`: server dan UI dites (`RevenueRegisterTest` 13 test) tetapi belum dicoba di browser. Menurut PRD juga mencakup baris dari Import Penjualan; menunggu Langkah 6.
+- [ ] Data Pendapatan: PPh 23 ditampilkan sebagai estimasi (redup, tooltip) dan kode 1404 karena belum dibukukan saat terbit (ADR-008). Konfirmasi tampilan ini dengan user.
+- [ ] Data Pendapatan: tombol Edit pada referensi diganti "Koreksi: buat invoice baru" setelah membalik; belum ada edit-sekali-jalan (pembalikan + salin ke form baru).
+- [ ] Pembalikan invoice menolak bila ada pelunasan susulan; pembatalan pelunasan dikerjakan di Langkah 4 (Input Pelunasan Piutang).
+- [ ] Laporan lain yang menghitung piutang (`FinancialReportService`, `ReportController`) mengandalkan status `unpaid/partial`; periksa kembali saat laporan dirombak di Langkah 3.3-3.5 agar invoice `reversed` tak ikut.
+- [ ] Jurnal Umum/Buku Besar gate C `[~]`: server dan UI dites (`GeneralLedgerReportsTest` 16 test), belum dicoba di browser. "Lihat baris, drilldown source" hanya aktif untuk invoice, beban, pelunasan piutang, dan pelunasan hutang beban (halaman sumber lain belum ada).
+- [ ] Jurnal Umum: kolom Saldo = saldo berjalan akun pada sisi normal sejak awal pembukuan (tidak di-reset filter bulan/cabang bila tidak memilih cabang). Arti "Saldo" di referensi tidak terverifikasi; konfirmasi dengan user.
+- [ ] Jurnal lama (sebelum kolom `source_kind`) dengan `TransactionPostingService` tampil "Lainnya" karena jenisnya tidak dapat disimpulkan; jurnal baru selalu bertanda jelas.
+- [ ] Buku Besar: klik akun pada ringkasan memuat ulang halaman (bukan panel inline); cetak memakai print browser/CSV, belum ada print stylesheet khusus.
+- [ ] `FinancialReportService`/LR/Neraca/Cashflow masih agregat lama; Buku Besar kini sumber saldo per akun yang benar, gunakan `LedgerService::summary()` untuk Langkah 3.4.
+- [ ] Laporan keuangan gate C `[~]`: 4 laporan dites dengan skenario hitung-tangan (`FinancialStatementsTest`, 15 test) tetapi belum dicoba di browser.
+- [ ] Laba Rugi: klasifikasi seksi memakai awalan kode akun (`ReportStructure`): 49 non-operasional, 51 direct cost, 52 dan lainnya overhead, 53 depreciation, 54 beban non-operasional, 55 pajak. Konfirmasi dengan akuntan; akun buatan user mengikuti awalan.
+- [ ] Laba Rugi Konsolidasi: referensi mengaitkan Periode Akhir dashboard ke laba berjalan Neraca dan menyediakan bandingkan-bulan; belum dibuat (filter global dashboard di Langkah 3.5).
+- [ ] Laba Rugi/Neraca/Cashflow: belum ada export (CSV) dan print stylesheet masih sederhana (cetak browser).
+- [ ] Neraca: "tabel rasio pendukung" belum dibuat (menunggu Langkah 7 Analisis Rasio). Kolom "saldo awal tahun lalu" ditafsirkan sebagai posisi pada Periode Awal (jurnal saldo awal pada periode dihitung posisi awal); konfirmasi dengan user.
+- [ ] Neraca memakai Laba Ditahan + Laba Tahun Berjalan terhitung karena belum ada jurnal penutup. Saat Tutup Buku (Langkah 8) memposting penutupan, verifikasi ulang Neraca agar tidak ganda.
+- [ ] Cashflow: pembelian aset dengan utang tampil sebagai investasi + kenaikan hutang (tanpa pemisahan investasi non-kas). Transfer antar cabang dan eliminasi (ADR-012) belum ditangani.
+- [ ] `FinancialReportService` lama masih dipakai Dashboard dan Ringkasan Laporan (angka KPI lama, Kas = total aset). Ganti ke `LedgerService`/`BalanceSheetService` di Langkah 3.5.
+- [ ] Dashboard gate B `[~]`: belum ada health score 19 rasio, enam rasio kunci, achievement anggaran, proyeksi dividen (kartu 'Belum tersedia' menuju menu terkait); dikerjakan di Langkah 7. Gate C `[~]`: belum dicoba di browser.
+- [ ] `HealthScoreService` (skor 100 bila jurnal seimbang) tidak lagi dipakai Dashboard tetapi file masih ada; hapus/ganti saat Langkah 7. `FinancialReportService` masih dipakai halaman Ringkasan Laporan lama (angka lama, Kas = total aset); alihkan atau hapus.
+- [ ] Dashboard: 8 kontrol integritas = jurnal seimbang, neraca seimbang, neraca tiap cabang, kas cashflow = kas neraca, laba rugi = laba berjalan neraca, piutang invoice vs buku besar, hutang dokumen vs buku besar, register aset vs buku besar. Tiga terakhir berstatus PERHATIAN (bukan gagal) bila selisih berasal dari saldo awal tanpa rincian dokumen. Konfirmasi daftar 8 kontrol dengan user (PRD tidak merincinya).
+- [ ] Dashboard: hutang outstanding = saldo akun bermodul 'Hutang' di buku besar; top 5 hutang hanya dari Beban (hutang aset/persediaan/pinjaman menyusul Langkah 4-5).
+- [ ] Dashboard: grafik SVG sederhana tanpa pustaka (tanpa Node di hosting). Drilldown rasio/anggaran/piutang per pelanggan menyusul.

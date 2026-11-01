@@ -7,7 +7,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Company extends Model
 {
-    protected $fillable = ['name', 'code'];
+    protected $fillable = [
+        'name', 'code', 'address', 'phone', 'email', 'invoice_bank_name',
+        'invoice_bank_account_name', 'invoice_bank_account_number',
+        'default_vat_rate', 'default_pph23_rate',
+    ];
 
     public function branches(): HasMany { return $this->hasMany(Branch::class); }
     public function accounts(): HasMany { return $this->hasMany(Account::class); }

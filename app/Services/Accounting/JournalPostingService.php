@@ -70,6 +70,8 @@ class JournalPostingService
                 'description' => $data['description'],
                 'source_type' => $data['source_type'] ?? null,
                 'source_id' => $data['source_id'] ?? null,
+                'source_kind' => $data['source_kind'] ?? null,
+                'reference' => isset($data['reference']) ? mb_substr((string) $data['reference'], 0, 100) : null,
                 'idempotency_key' => $data['idempotency_key'],
                 'created_by' => $data['created_by'] ?? null,
             ]);

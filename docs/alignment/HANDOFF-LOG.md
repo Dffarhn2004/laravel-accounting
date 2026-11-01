@@ -3,6 +3,98 @@
 Format entri: tanggal · agent/orang · apa yang dikerjakan · status test · hal yang menggantung · saran langkah berikut.
 
 ---
+## 2026-11-01 (sesi 13) · Claude (Sonnet 5.5) · Langkah 3.5 Dashboard; Langkah 3 selesai
+- `DashboardService` + `DashboardController` ditulis ulang. Enam KPI dari buku besar: Pendapatan dan Laba Bersih (periode), Kas (hanya akun kas/bank), Total Aset, Piutang, Hutang (saldo akhir periode). Filter cabang + periode awal/akhir diterapkan server side ke semua angka; user terikat cabang tidak bisa memperlebar cakupan.
+- Blok: tren pendapatan/beban/laba 12 bulan, tren kas akhir bulan, arus kas per aktivitas, komposisi beban dan aset, kinerja tiap cabang, matriks laba rugi 12 bulan, top 5 piutang (per akhir periode) dan hutang.
+- 8 kontrol integritas (ok/warn/fail) membandingkan sumber independen; status VALID / PERHATIAN / TIDAK VALID / BELUM ADA DATA. Perusahaan kosong tidak pernah dinyatakan VALID.
+- Yang belum ada tidak dipalsukan: health score 19 rasio, rasio kunci, achievement anggaran, proyeksi dividen tampil sebagai kartu 'Belum tersedia' menuju menu terkait. `HealthScoreService` lama (skor 100 dari jurnal seimbang) tidak lagi dipakai.
+- UI: `dashboard.tsx` baru, `components/charts.tsx` (SVG tanpa dependensi + tabel sr-only), setiap KPI menaut ke laporan sumbernya.
+- Test: `DashboardReportingTest` 11 test (skenario berangka: kas 10.100.000 vs aset 10.266.400, filter periode/cabang, kontrol, buku rusak -> TIDAK VALID, saldo awal piutang -> PERHATIAN, perusahaan kosong). Total 177/177 lulus, `tsc` bersih, build OK, `route:cache` OK. Belum dicoba di browser. Belum di-commit.
+- Langkah 3 (Invoice -> Data Pendapatan -> Jurnal Umum/Buku Besar -> LR/Neraca/Cashflow -> Dashboard) selesai di server+UI. ACC-01..04, 14, 16, 22 terbukti test; ACC-21 (cetak A4) baru pratinjau.
+- Langkah berikut: sebelum lanjut, SANGAT disarankan cek browser semua halaman Langkah 1-3 dan commit. Lalu Langkah 4 (Beban, Kas/Bank, Piutang, Jurnal Manual + Data masing-masing, Laporan Piutang/Hutang).
+
+---
+## 2026-11-01 (sesi 12) · Claude (Sonnet 5.5) · Langkah 3.4 Laba Rugi, Neraca, Cashflow
+- `ReportStructure`: klasifikasi akun ke seksi Laba Rugi berdasarkan awalan kode; bucket cashflow berdasarkan modul akun.
+- `ProfitLossService`: satu bentuk laporan, dua set kolom (12 bulan atau per cabang). Pendapatan Operasional -> Direct Cost -> Gross Margin -> Overhead -> EBITDA -> Depreciation -> EBIT -> Non-Operasional -> EBT -> Pajak -> Laba Bersih; % Rasio terhadap pendapatan operasional (N/A bila 0). Akun tanpa mutasi disembunyikan kecuali "tampilkan semua".
+- `BalanceSheetService`: posisi awal (sebelum periode + jurnal saldo awal yang jatuh di periode) dan posisi akhir, dikelompokkan per modul, growth (N/A bila awal 0). Karena belum ada jurnal penutup, ditambah baris terhitung "Laba Ditahan s.d. akhir tahun lalu" dan "Laba Tahun Berjalan" (tahun acuan kolom awal mengikuti Periode Awal) sehingga Aktiva = Pasiva. Bug ditangkap test: laba tahun lalu sempat tampil sebagai laba berjalan di kolom awal.
+- `CashFlowService` (tidak langsung): efek kas tiap akun neraca non-kas = -(perubahan saldo debit-kredit); Delta kas = laba bersih + semua efek, identitas yang pasti benar karena setiap jurnal seimbang. Kas = modul "Kas & Bank" dan akun CashAccount. Jurnal saldo awal pada periode bukan arus kas. Rekonsiliasi kas akhir vs kas Neraca ditampilkan.
+- Halaman: `profit-loss`, `branch-profit-loss`, `balance-sheet`, `cash-flow` memakai `ReportMatrix` (hierarkis, kolom Kode/Uraian lengket, negatif dalam kurung, klik akun -> Buku Besar dengan periode/cabang terbawa) dan `ReportShell` (filter, cetak). Route baru `reports/branch-profit-loss` dan `reports/cash-flow`; `config/navigation.php` LR per Cabang dan Cashflow pending -> partial. `financial-statement.tsx` lama dihapus.
+- Test `FinancialStatementsTest` (15): satu skenario dengan angka dihitung tangan (dua cabang, saldo awal, laba 2025 yang belum ditutup, penyusutan, pajak, pinjaman, prive, beli aset, bayar hutang) membuktikan: Laba Bersih 202.000; Aktiva = Pasiva di posisi awal (26jt) dan akhir (30.754.800), per cabang juga; kolom cabang = konsolidasi di setiap baris; Cashflow operasi -828.000, investasi -4jt, pendanaan 5,5jt, kenaikan kas 672.000 = kas Neraca; rekonsiliasi benar untuk beberapa periode dan cabang.
+- Test: 166/166 lulus, `tsc` bersih, build OK, `route:cache` OK. Belum dicoba di browser. Belum di-commit.
+- Langkah berikut: 3.5 Dashboard (6 KPI dengan Kas = akun kas/bank saja, filter global cabang+periode, 8 kontrol integritas, blok sekunder dari data nyata), mengganti `FinancialReportService` lama.
+
+---
+## 2026-11-01 (sesi 11) · Claude (Sonnet 5.5) · Langkah 3.3 Jurnal Umum + Buku Besar
+- Migrasi `2026_11_01_070000`: `journal_entries.source_kind` + `reference` (+ backfill untuk sumber yang tak ambigu). Semua titik posting kini mengisi jenis sumber: invoice, receipt, expense, expense_payment, inventory, asset, depreciation, treasury, opening, manual, reversal (`JournalSource::LABELS`). Sebelumnya semua posting transaksi berbagi `source_type` yang sama sehingga tak bisa dibedakan.
+- `LedgerService` (read model, satu-satunya tempat query laporan buku besar): `lines()`, `totals()`, `netBefore()` (basis saldo berjalan untuk halaman terpaginasi), `summary()` (saldo awal/debit/kredit/saldo akhir seluruh akun, satu query agregat), `counterAccounts()`, `sourceUrls()`. Saldo pada sisi normal akun: aset dan beban debit; kewajiban, ekuitas, pendapatan kredit; akun `is_contra` membalik.
+- Jurnal Umum (`/accounting/journals`): 12 kolom PRD, filter cabang/sumber/tahun/bulan/cari (server side, divalidasi), total debit/kredit/selisih + badge Seimbang, drilldown ke dokumen sumber, export CSV (saldo berjalan ikut, anti formula injection), user terikat cabang hanya melihat cabangnya.
+- Buku Besar (`/accounting/ledger`): dua bagian di satu halaman sesuai PRD (detail akun: Tanggal | No Trx | Sumber | Keterangan | Akun Lawan | Debit | Kredit | Saldo, 100 baris/halaman dengan saldo yang benar di halaman ke-2 dst; ringkasan seluruh akun), periode awal/akhir, export CSV ringkasan dan detail.
+- Bug yang ditangkap test: SQLite menyimpan `posted_on` sebagai datetime string sehingga basis saldo ikut menghitung baris itu sendiri; diperbaiki dengan membandingkan tanggal saja.
+- `App\Support\Csv` (netralisasi formula) dipakai bersama oleh export Data Pendapatan, Jurnal Umum, Buku Besar.
+- Test: 151/151 lulus (`GeneralLedgerReportsTest` 16 test baru), `tsc` bersih, build OK, `route:cache` OK. Belum dicoba di browser. Belum di-commit.
+- Dev DB: `php artisan migrate`.
+- Langkah berikut: 3.4 Laporan Laba Rugi (konsolidasi matriks Jan-Des + per cabang), Neraca, Cashflow; memakai `LedgerService`/query agregat, hierarki akun dan subtotal GM/EBITDA/EBIT/EBT.
+
+---
+## 2026-11-01 (sesi 10) · Claude (Sonnet 5.5) · Langkah 3.2 Data Pendapatan
+- `RevenueRegisterService`: satu baris per produk dan per pendapatan lain, 26 kolom sesuai urutan PRD (`COLUMNS`). Nilai tingkat invoice (Bank/Cash, PPh 23, PPN, Piutang) hanya di baris pertama agar penjumlahan tidak ganda; Total Pendapatan = bruto per baris, Beban Discount = diskon baris (kode 5103). Total halaman dari agregat DB atas seluruh hasil filter, tidak termasuk invoice dibalik.
+- `RevenueRegisterController` (route `transactions.invoices.index` kini ke sini): filter Cari (no INV, customer/kode, produk, pendapatan lain), Cabang, Dari/Sampai; validasi filter; user terikat cabang hanya melihat cabangnya; nomor baris berlanjut antar halaman (25 invoice/halaman).
+- Export CSV (`/transactions/invoices/export`): memakai filter yang sama (bukan hanya halaman tampil), BOM UTF-8, 26 kolom + Status, sel teks diawali `= + - @ tab CR` dinetralkan dengan `'` (CSV formula injection).
+- Koreksi = pembalikan: `TransactionPostingService::reverseInvoice()` (alasan wajib, tanggal >= tanggal invoice, harus di tahun buku terbuka, kunci idempoten `invoice-reversal-{id}`, jurnal asli tak dihapus, status `reversed`, kas pembayaran awal ikut dibalik; ditolak bila ada pelunasan susulan atau sudah dibalik). Migrasi `2026_11_01_060000`. `AgingReportService` kini mengabaikan invoice `reversed`.
+- Bukti: tambah (`POST transactions/invoices/{id}/attachments`, maks 5 total) dan hapus (`DELETE attachments/{id}`), semua dicek company (dan cabang untuk user terikat).
+- UI `data-pendapatan.tsx`: TanStack Table 26 kolom, kolom Aksi/Bukti/No sticky, scroll horizontal, visibilitas kolom, dialog pembalikan dan bukti, kartu total, pagination. Halaman lama `invoices.tsx` dan `TransactionController::invoices()` dihapus (digantikan).
+- Test: 135/135 lulus (`RevenueRegisterTest` 13 test), `tsc` bersih, build OK, `route:cache` OK. Belum dicoba di browser. Belum di-commit.
+- Dev DB: `php artisan migrate`.
+- Langkah berikut: 3.3 Jurnal Umum (filter cabang/sumber/bulan/cari, drilldown sumber) dan Buku Besar (detail akun + ringkasan semua akun).
+
+---
+## 2026-11-01 (sesi 9) · Claude (Sonnet 5.5) · Langkah 3.1 Input Invoice selesai
+- Membaca HANDOFF sesi 5-8 (Codex) dan melanjutkan dari fondasi pajak. Kondisi awal diverifikasi: 109 test, build, tsc hijau.
+- Migrasi `2026_11_01_050000`: `invoices.payment_method/paid_amount/payment_account_id/discount_account_id/other_income_total`, `invoice_lines.product_id/revenue_account_id`, tabel `invoice_other_incomes`, tabel `attachments` (generik).
+- `TransactionPostingService::invoice()` ditulis ulang (bcmath): kelompok pendapatan per baris, maks 15 baris, maks 3 pendapatan lain, DPP setelah diskon + pendapatan lain, PPN di atas DPP (ADR-008), pembayaran awal (Dr kas/bank, sisa Dr piutang), diskon sebagai Dr 5103 Beban Discount dengan pendapatan bruto (kolom referensi), validasi tipe akun dan `company_id`. Pembayaran awal membuat `Receipt` + alokasi pada jurnal yang sama sehingga subledger AR = GL. Nomor otomatis `INV-YYYY-00001`. Kompatibel dengan test lama (tanpa akun diskon = pendapatan netto).
+- `AttachmentService` + `AttachmentController` (`/attachments/{id}`): maks 5 file, 5 MB, JPG/PNG/WebP/PDF, tipe disniff dari isi (executable bertopeng .jpg ditolak), disimpan di disk privat dengan nama acak, hanya dibuka user company pemilik, header nosniff + CSP. Posting dan lampiran satu transaksi DB.
+- UI: `invoice-form.tsx` (halaman input sendiri, grid 15 baris, pendapatan lain, PPN/PPh23, ringkasan sticky, Lunas, pratinjau, reset, EDIT DATA), `invoice-document.tsx` (A4 bersama), `invoice-print.tsx` (`/transactions/invoices/{id}/print`), `invoice-detail.tsx` diperkaya (diskon, pendapatan lain, bukti, cetak).
+- Kesalahan bisnis service -> pesan validasi `errors.invoice` (bukan 500).
+- Test: 122/122 lulus (`InvoiceInputTest` 13 test baru), `npm run build`, `tsc`, `route:cache` OK. Form belum dicoba di browser.
+- Menggantung: lihat CHECKLIST bagian C (customer cepat, terjemahan pesan, pembalikan, urutan, lampiran untuk transaksi lain). Belum di-commit.
+- Dev DB: `php artisan migrate`.
+- Langkah berikut: 3.2 Data Pendapatan (26 kolom persis, cari, filter cabang, bukti, export CSV), lalu 3.3 Jurnal Umum + Buku Besar.
+
+---
+## 2026-11-01 (sesi 8) · Codex · Langkah 3.1 Invoice: fondasi pajak server
+- Migrasi `2026_11_01_040000` menambah snapshot `dpp`, diskon, tarif/nominal PPN dan PPh23, akun PPN Keluaran, serta diskon dan total tiap baris invoice.
+- `TransactionPostingService::invoice()` kini menghitung DPP sesudah diskon dan pajak dengan bcmath; PPN menambah piutang dan dikredit ke akun PPN Keluaran. PPh23 tersimpan sebagai estimasi dari DPP untuk dipakai saat penerimaan/bukti potong pada Langkah 4.
+- Validasi membatasi maksimum 15 baris dan diskon/tarif 0–100. Test baru membuktikan DPP Rp180.000 setelah diskon, PPN Rp19.800, total piutang Rp199.800, estimasi PPh23 Rp3.600, serta jurnal balance.
+- Verifikasi fokus: `TransactionPostingTest` 9/9 lulus, type-check bersih, route cache berhasil. Migrasi sudah diterapkan. UI Invoice belum diperluas dan full suite/build belum dijalankan setelah perubahan ini.
+- Lanjutan: perluas form dengan pilihan akun/rate PPN, diskon dan total server; kemudian pendapatan lain, pembayaran awal, bukti, preview/cetak dan test end-to-end.
+
+---
+## 2026-11-01 (sesi 7) · Codex · ADR-008 diputuskan pengguna
+- Pengguna menyetujui rekomendasi: PPN dari DPP menambah total piutang dan dikredit ke PPN Keluaran saat invoice; PPh23 tidak mengurangi invoice/pendapatan saat penerbitan dan menjadi PPh23 Dibayar di Muka ketika pelanggan memotong pembayaran dengan bukti potong.
+- Tarif berasal dari pengaturan usaha; tetap perlu review profesional sebelum dipakai untuk pelaporan pajak.
+- Langkah berikut: implementasikan 3.1 end-to-end dengan snapshot tarif/akun pada invoice, kalkulasi decimal, dan alokasi penerimaan bersih + kredit PPh23.
+
+---
+## 2026-11-01 (sesi 6) · Codex · Hardening awal Langkah 3.1 Invoice
+- Audit menemukan `InvoiceRequest` sebelumnya memakai validasi `exists` global dan `TransactionPostingService::invoice()` hanya memverifikasi cabang/periode. Kini customer, cabang, periode, piutang, dan akun pendapatan seluruhnya dibatasi ke `company_id` pengguna; service juga menolak account/customer lintas company bila dipanggil selain dari HTTP.
+- Menambahkan test regresi untuk akun lintas company; test Invoice terkait sekarang 8/8 lulus.
+- Belum mengubah status/gate Invoice: form dan posting penuh (produk, diskon, pendapatan lain, pajak, uang muka, lampiran, preview/cetak) belum dibangun.
+- Blocker keputusan bisnis: ADR-008 perlu menetapkan akun PPN/PPh23 serta apakah PPh23 mengurangi kas diterima, piutang, atau dicatat sebagai kredit pajak. Jangan lanjut posting pajak sebelum diputuskan.
+- Verifikasi: `npm run build`, `npm run types:check`, `php artisan test --compact` → 108/108 lulus, `php artisan route:cache && php artisan route:clear` berhasil, `git diff --check` bersih. Tidak ada commit.
+- Langkah berikut: setelah ADR-008, lanjutkan 3.1 dengan migrasi field invoice, kalkulasi decimal, jurnal pajak, dan test kasus paid/partial/unpaid.
+
+---
+## 2026-11-01 (sesi 5) · Codex · Langkah 2.5 Pengaturan & Backup
+- Selesai ruang lingkup yang diizinkan: `/settings/company` sekarang menyimpan identitas usaha (alamat, telepon, email), rekening invoice, serta default PPN/PPh23 sebagai `decimal(5,2)` yang dapat dikonfigurasi (0–100). Tidak ada tarif hukum yang dihardcode; UI menyatakan perlunya review profesional.
+- Backup/restore, data contoh, dan reset sengaja belum dibangun karena ADR-006 masih OPEN. Default pajak belum dikonsumsi Invoice dan perlu dikerjakan pada Langkah 3 dengan review ADR-008.
+- Menambahkan migrasi `2026_11_01_030000`, `CompanyUpdateRequest`, dan `CompanyUpdateTest` (simpan data nyata, validasi tarif, larangan user tanpa company): 3 test baru lulus.
+- Memindahkan dua endpoint closure lama (`/modules/{section}` dan `/.well-known/passkey-endpoints`) ke controller bernama; test regresi menjaga respons keduanya dan `php artisan route:cache` berhasil.
+- Verifikasi: `npm install`, `composer install`, `php artisan migrate`, `npm run build`, `php artisan test --compact` → 107/107 lulus, `npm run types:check` bersih, `php artisan route:cache && php artisan route:clear` berhasil, dan `git diff --check` bersih.
+- Menggantung: cek browser responsif sidebar/pengaturan; backup ADR-006; kebijakan dan pemakaian PPN/PPh23 ADR-008; utang teknis lain di CHECKLIST C. Perubahan belum di-commit.
+- Langkah berikut: Langkah 3.1 — Input Invoice penuh, mulai dengan menetapkan keputusan pajak ADR-008 sebelum mengimplementasikan perhitungan dan posting pajak.
+
+---
 ## 2026-11-01 (sesi 4) · Claude (Sonnet 5.5) · Langkah 2.4 Saldo Neraca + Setoran Modal Awal
 - `OpeningPositionService`: dua metode saldo awal, eksklusif per cabang + tahun buku, diposting sekali, memakai bcmath (tanpa float). `ensureFree()` juga dipasang di jalur lama `TreasuryPostingService::openingBalance`.
 - Saldo Neraca (`/inputan/saldo`): grid semua akun neraca (45 di COA bawaan), posisi plus/minus dari `accounts.is_contra`, kartu Aset/Kewajiban/Ekuitas/Selisih/Status; hanya bisa diposting bila seimbang.

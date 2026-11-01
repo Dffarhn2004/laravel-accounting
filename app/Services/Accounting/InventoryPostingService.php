@@ -93,6 +93,7 @@ class InventoryPostingService
             'posted_on' => $data['moved_on'],
             'description' => $data['description'] ?? 'Inventory movement',
             'source_type' => self::class,
+            'source_kind' => 'inventory',
             'source_id' => (string) $sourceId,
             'lines' => $lines,
         ]);

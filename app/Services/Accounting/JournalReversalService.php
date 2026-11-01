@@ -32,6 +32,8 @@ class JournalReversalService
                 'description' => $data['description'] ?? 'Reversal: '.$entry->description,
                 'idempotency_key' => $data['idempotency_key'],
                 'source_type' => 'reversal',
+                'source_kind' => 'reversal',
+                'reference' => $entry->reference,
                 'source_id' => (string) $entry->id,
                 'created_by' => $data['created_by'] ?? null,
                 'lines' => $lines,

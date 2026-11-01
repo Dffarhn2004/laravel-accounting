@@ -34,7 +34,7 @@ class ManualJournalController extends Controller
 
     public function store(ManualJournalRequest $request, JournalPostingService $service): RedirectResponse
     {
-        $service->post($request->validated());
+        $service->post($request->validated() + ['source_kind' => 'manual']);
 
         return back()->with('success', 'Manual journal posted.');
     }

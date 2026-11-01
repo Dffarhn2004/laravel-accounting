@@ -1,16 +1,144 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
+import { ChevronLeft, ChevronRight, Download, ExternalLink } from 'lucide-react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
-type Line = { debit: string; credit: string; account: { code: string; name: string } };
-type Entry = { id: number; posted_on: string; description: string; branch?: { name: string }; lines: Line[] };
-type Props = { entries: { data: Entry[]; total?: number }; filters?: { from?: string; to?: string; search?: string } };
-const rupiah = (value: number) => `Rp ${value.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+type Row = {
+    line_id: number;
+    entry_id: number;
+    source: string;
+    source_kind: string | null;
+    reference: string;
+    branch: string | null;
+    year: number;
+    month: string;
+    date: string;
+    account_code: string;
+    account_name: string;
+    description: string | null;
+    debit: string;
+    credit: string;
+    balance: string;
+    source_url: string | null;
+};
+type Props = {
+    rows: Row[];
+    pagination: { current: number; last: number; total: number; prev: string | null; next: string | null };
+    totals: { debit: string; credit: string; difference: string; lines: number };
+    filters: { branch_id: number | null; source: string | null; year: number | null; month: number | null; search: string | null };
+    branches: { id: number; code: string; name: string }[];
+    sources: { key: string; label: string }[];
+    years: number[];
+    months: string[];
+};
 
-export default function Journal({ entries, filters = {} }: Props) {
-    return <><Head title="Jurnal Umum" /><main className="mx-auto max-w-[1400px] space-y-6 p-4 md:p-8">
-        <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm text-muted-foreground">Akuntansi</p><h1 className="text-3xl font-semibold tracking-tight">Jurnal Umum</h1><p className="mt-1 text-sm text-muted-foreground">Dokumen jurnal yang telah diposting. Koreksi dilakukan melalui pembalikan, bukan edit langsung.</p></div><Button asChild><Link href="/accounting/manual-journal">Buat jurnal manual</Link></Button></header>
-        <form action="/accounting/journals" method="get" className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4"><label className="grid gap-1 text-sm"><span className="text-muted-foreground">Cari</span><input name="search" defaultValue={filters.search} placeholder="Keterangan jurnal" className="rounded-md border bg-background p-2" /></label><label className="grid gap-1 text-sm"><span className="text-muted-foreground">Dari tanggal</span><input name="from" type="date" defaultValue={filters.from} className="rounded-md border bg-background p-2" /></label><label className="grid gap-1 text-sm"><span className="text-muted-foreground">Sampai tanggal</span><input name="to" type="date" defaultValue={filters.to} className="rounded-md border bg-background p-2" /></label><Button type="submit" variant="outline">Terapkan filter</Button>{(filters.from || filters.to) && <Link href="/accounting/journals" className="text-sm text-muted-foreground hover:text-foreground">Reset</Link>}</form>
-        <section className="rounded-xl border bg-card"><div className="flex items-center justify-between border-b px-5 py-4"><div><h2 className="font-semibold">Entri jurnal</h2><p className="text-sm text-muted-foreground">Debit dan kredit setiap entri harus selalu seimbang.</p></div><Badge variant="outline">{entries.total ?? entries.data.length} entri</Badge></div><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-sm"><thead className="sticky top-0 z-10 border-b bg-muted/40 text-left text-xs text-muted-foreground"><tr><th className="p-3">Tanggal</th><th className="p-3">Cabang</th><th className="p-3">Keterangan & akun</th><th className="p-3 text-right">Debit</th><th className="p-3 text-right">Kredit</th><th className="p-3">Status</th></tr></thead><tbody>{entries.data.length ? entries.data.map((entry) => { const debit = entry.lines.reduce((total, line) => total + Number(line.debit), 0); const credit = entry.lines.reduce((total, line) => total + Number(line.credit), 0); const balanced = debit === credit; return <tr key={entry.id} className="border-b align-top last:border-0"><td className="p-3 whitespace-nowrap">{entry.posted_on}</td><td className="p-3">{entry.branch?.name ?? '—'}</td><td className="p-3"><p className="font-medium">{entry.description}</p><p className="mt-1 text-xs text-muted-foreground">{entry.lines.map((line) => `${line.account.code} — ${line.account.name}`).join(' · ')}</p></td><td className="p-3 text-right tabular-nums">{rupiah(debit)}</td><td className="p-3 text-right tabular-nums">{rupiah(credit)}</td><td className="p-3"><Badge variant={balanced ? 'secondary' : 'destructive'}>{balanced ? 'Seimbang' : 'Tidak seimbang'}</Badge></td></tr>; }) : <tr><td colSpan={6} className="p-10 text-center text-muted-foreground">Belum ada jurnal dalam rentang tanggal ini.</td></tr>}</tbody></table></div></section>
-    </main></>;
+const num = (v: string) => Number(v).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const dash = (v: string) => (Number(v) === 0 ? '' : num(v));
+const HEAD = ['Sumber', 'No Trx', 'Cabang', 'Tahun', 'Bulan', 'Tanggal', 'No Akun', 'Nama Akun', 'Keterangan', 'Debit', 'Kredit', 'Saldo'];
+const RIGHT = new Set(['Debit', 'Kredit', 'Saldo']);
+
+export default function Journal({ rows, pagination, totals, filters, branches, sources, years, months }: Props) {
+    const [form, setForm] = useState({
+        search: filters.search ?? '',
+        branch_id: filters.branch_id ? String(filters.branch_id) : '',
+        source: filters.source ?? '',
+        year: filters.year ? String(filters.year) : '',
+        month: filters.month ? String(filters.month) : '',
+    });
+    const query = () => Object.fromEntries(Object.entries(form).filter(([, v]) => v !== ''));
+    const exportUrl = `/accounting/journals/export?${new URLSearchParams(query() as Record<string, string>).toString()}`;
+    const balanced = Number(totals.difference) === 0;
+    const select = 'rounded-md border bg-background p-2 text-sm';
+
+    return (
+        <>
+            <Head title="Jurnal Umum" />
+            <main className="mx-auto w-full max-w-[1600px] space-y-4 p-4 md:p-8">
+                <header className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                        <p className="text-sm text-muted-foreground">Laporan</p>
+                        <h1 className="text-3xl font-semibold tracking-tight">Jurnal Umum</h1>
+                        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+                            Seluruh posting dari invoice, beban, persediaan, pelunasan, aset, penyusutan, kas/bank, jurnal manual, dan saldo awal. Saldo adalah saldo berjalan akun pada sisi normalnya (dihitung dari awal pembukuan, tidak terpengaruh filter bulan). Halaman ini hanya baca; koreksi dilakukan dengan pembalikan di dokumen sumber.
+                        </p>
+                    </div>
+                    <Button variant="outline" asChild><a href={exportUrl}><Download />Export CSV</a></Button>
+                </header>
+
+                <form className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4" role="search" onSubmit={(e) => { e.preventDefault(); router.get('/accounting/journals', query(), { preserveState: true, replace: true }); }}>
+                    <label className="grid gap-1 text-sm">Cari
+                        <Input className="w-56" placeholder="No Trx, akun, keterangan…" value={form.search} onChange={(e) => setForm({ ...form, search: e.target.value })} />
+                    </label>
+                    <label className="grid gap-1 text-sm">Cabang
+                        <select className={select} value={form.branch_id} onChange={(e) => setForm({ ...form, branch_id: e.target.value })}>
+                            <option value="">Semua cabang</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.code} — {b.name}</option>)}
+                        </select>
+                    </label>
+                    <label className="grid gap-1 text-sm">Sumber
+                        <select className={select} value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })}>
+                            <option value="">Semua sumber</option>{sources.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+                        </select>
+                    </label>
+                    <label className="grid gap-1 text-sm">Tahun
+                        <select className={select} value={form.year} onChange={(e) => setForm({ ...form, year: e.target.value })}>
+                            <option value="">Semua</option>{years.map((y) => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                    </label>
+                    <label className="grid gap-1 text-sm">Bulan
+                        <select className={select} value={form.month} onChange={(e) => setForm({ ...form, month: e.target.value })}>
+                            <option value="">Semua</option>{months.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                        </select>
+                    </label>
+                    <Button type="submit">Terapkan</Button>
+                    <Button type="button" variant="ghost" onClick={() => { setForm({ search: '', branch_id: '', source: '', year: '', month: '' }); router.get('/accounting/journals', {}, { replace: true }); }}>Reset</Button>
+                </form>
+
+                <section aria-label="Total" className="grid gap-3 text-sm sm:grid-cols-4">
+                    <div className="rounded-lg border bg-card p-3"><p className="text-xs text-muted-foreground">Total Debit</p><p className="mt-1 font-semibold tabular-nums">{num(totals.debit)}</p></div>
+                    <div className="rounded-lg border bg-card p-3"><p className="text-xs text-muted-foreground">Total Kredit</p><p className="mt-1 font-semibold tabular-nums">{num(totals.credit)}</p></div>
+                    <div className="rounded-lg border bg-card p-3"><p className="text-xs text-muted-foreground">Selisih</p><p className="mt-1 font-semibold tabular-nums">{num(totals.difference)}</p></div>
+                    <div className="rounded-lg border bg-card p-3"><p className="text-xs text-muted-foreground">Status ({totals.lines} baris)</p><p className="mt-1">{totals.lines === 0 ? <Badge variant="outline">Belum ada jurnal</Badge> : balanced ? <Badge>Seimbang</Badge> : <Badge variant="destructive">Tidak seimbang</Badge>}</p></div>
+                </section>
+
+                <div className="overflow-x-auto rounded-xl border bg-card" tabIndex={0} aria-label="Tabel Jurnal Umum">
+                    <table className="w-full min-w-[1200px] text-sm">
+                        <thead className="bg-muted/60 text-left text-xs text-muted-foreground">
+                            <tr>{HEAD.map((h) => <th key={h} className={`h-11 whitespace-nowrap px-3 font-medium ${RIGHT.has(h) ? 'text-right' : ''}`}>{h}</th>)}</tr>
+                        </thead>
+                        <tbody>
+                            {rows.length === 0 && <tr><td colSpan={HEAD.length} className="h-32 text-center text-muted-foreground">Belum ada jurnal yang cocok. Jurnal terbentuk otomatis saat transaksi diposting.</td></tr>}
+                            {rows.map((r, i) => (
+                                <tr key={r.line_id} className={`hover:bg-muted/30 ${i > 0 && rows[i - 1].entry_id !== r.entry_id ? 'border-t-2' : 'border-t'}`}>
+                                    <td className="whitespace-nowrap px-3 py-2"><Badge variant="outline">{r.source}</Badge></td>
+                                    <td className="whitespace-nowrap px-3 py-2 tabular-nums">
+                                        {r.source_url ? <Link href={r.source_url} className="inline-flex items-center gap-1 underline">{r.reference}<ExternalLink className="size-3" aria-label="Buka dokumen sumber" /></Link> : r.reference}
+                                    </td>
+                                    <td className="whitespace-nowrap px-3 py-2">{r.branch}</td>
+                                    <td className="px-3 py-2 tabular-nums">{r.year}</td>
+                                    <td className="whitespace-nowrap px-3 py-2">{r.month}</td>
+                                    <td className="whitespace-nowrap px-3 py-2 tabular-nums">{r.date}</td>
+                                    <td className="px-3 py-2 tabular-nums">{r.account_code}</td>
+                                    <td className="whitespace-nowrap px-3 py-2">{r.account_name}</td>
+                                    <td className="max-w-xs truncate px-3 py-2 text-muted-foreground" title={r.description ?? ''}>{r.description}</td>
+                                    <td className="px-3 py-2 text-right tabular-nums">{dash(r.debit)}</td>
+                                    <td className="px-3 py-2 text-right tabular-nums">{dash(r.credit)}</td>
+                                    <td className="px-3 py-2 text-right tabular-nums">{num(r.balance)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                <nav className="flex items-center justify-between text-sm text-muted-foreground" aria-label="Halaman">
+                    <span>{pagination.total} baris · halaman {pagination.current} dari {pagination.last}</span>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" disabled={!pagination.prev} asChild={Boolean(pagination.prev)}>{pagination.prev ? <Link href={pagination.prev} preserveState><ChevronLeft />Sebelumnya</Link> : <span><ChevronLeft />Sebelumnya</span>}</Button>
+                        <Button variant="outline" size="sm" disabled={!pagination.next} asChild={Boolean(pagination.next)}>{pagination.next ? <Link href={pagination.next} preserveState>Berikutnya<ChevronRight /></Link> : <span>Berikutnya<ChevronRight /></span>}</Button>
+                    </div>
+                </nav>
+            </main>
+        </>
+    );
 }

@@ -86,10 +86,10 @@ return [
             'spec' => 'docs/reference-catatrapi/05-LAPORAN.md',
             'items' => [
                 ['id' => 'ju', 'label' => 'Jurnal Umum', 'path' => '/accounting/journals', 'status' => 'partial'],
-                ['id' => 'lr-cabang', 'label' => 'Laporan Laba Rugi per Cabang', 'path' => '/laporan/lr-cabang', 'status' => 'pending'],
+                ['id' => 'lr-cabang', 'label' => 'Laporan Laba Rugi per Cabang', 'path' => '/reports/branch-profit-loss', 'status' => 'partial'],
                 ['id' => 'lr', 'label' => 'Laporan Laba Rugi Konsolidasi', 'path' => '/reports/profit-loss', 'status' => 'partial'],
                 ['id' => 'neraca', 'label' => 'Laporan Neraca', 'path' => '/reports/balance-sheet', 'status' => 'partial'],
-                ['id' => 'cashflow', 'label' => 'Laporan Cashflow', 'path' => '/laporan/cashflow', 'status' => 'pending'],
+                ['id' => 'cashflow', 'label' => 'Laporan Cashflow', 'path' => '/reports/cash-flow', 'status' => 'partial'],
                 ['id' => 'bb', 'label' => 'Laporan Buku Besar', 'path' => '/accounting/ledger', 'status' => 'partial'],
                 ['id' => 'lap-persediaan', 'label' => 'Laporan Persediaan', 'path' => '/accounting/inventory', 'status' => 'partial'],
                 ['id' => 'lap-piutang', 'label' => 'Laporan Piutang', 'path' => '/accounting/aging', 'status' => 'partial'],

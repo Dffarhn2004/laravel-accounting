@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Accounting;
 use App\Http\Controllers\Controller;
 use App\Models\Expense;
 use App\Models\Invoice;
+use App\Models\Product;
+use App\Models\TemplateOption;
 use App\Models\Account;
 use App\Models\Branch;
 use App\Models\Customer;
@@ -15,7 +17,9 @@ use App\Http\Requests\Accounting\InvoiceRequest;
 use App\Http\Requests\Accounting\ReceiptRequest;
 use App\Services\Accounting\TransactionPostingService;
 use Illuminate\Http\RedirectResponse;
+use App\Services\Accounting\AttachmentService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class TransactionController extends Controller
@@ -27,11 +31,28 @@ class TransactionController extends Controller
         return back()->with('success', 'Expense posted.');
     }
 
-    public function storeInvoice(InvoiceRequest $request, TransactionPostingService $service): RedirectResponse
+    public function storeInvoice(InvoiceRequest $request, TransactionPostingService $service, AttachmentService $attachments): RedirectResponse
     {
-        $service->invoice($request->validated());
+        $data = $request->validated();
+        $files = $request->file('attachments', []);
+        unset($data['attachments']);
 
-        return back()->with('success', 'Invoice posted.');
+        // Posting and evidence succeed or fail together.
+        try {
+            $invoice = DB::transaction(function () use ($service, $attachments, $data, $files, $request) {
+                $invoice = $service->invoice($data);
+                if ($files) {
+                    $attachments->attach($invoice, $invoice->company_id, $files, $request->user()->id);
+                }
+
+                return $invoice;
+            });
+        } catch (\InvalidArgumentException $e) {
+            // Business-rule failures (overpayment, closed period, wrong account type, duplicate submit).
+            return back()->withErrors(['invoice' => $e->getMessage()])->withInput();
+        }
+
+        return redirect()->route('transactions.invoices.show', $invoice)->with('success', 'Invoice '.$invoice->invoice_number.' diposting.');
     }
 
     public function storeReceipt(ReceiptRequest $request, TransactionPostingService $service): RedirectResponse
@@ -62,36 +83,30 @@ class TransactionController extends Controller
         ]);
     }
 
-    public function invoices(Request $request)
+    public function createInvoice(Request $request, TransactionPostingService $service)
     {
-        $companyId = $request->user()?->company_id;
+        $user = $request->user();
+        $companyId = $user->company_id;
+        abort_unless($companyId, 403, 'Akun Anda belum terhubung ke perusahaan.');
+        $company = $user->company;
+        $codes = Account::where('company_id', $companyId)->whereIn('code', ['1201', '2301', '5103', '1101', '1111'])->pluck('id', 'code');
 
-        return Inertia::render('accounting/invoices', [
-            'showForm' => false,
-            'accounts' => Account::query()->where('company_id', $companyId)->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']),
-            'branches' => Branch::query()->where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+        return Inertia::render('accounting/invoice-form', [
+            'accounts' => Account::query()->where('company_id', $companyId)->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name', 'type']),
+            'branches' => Branch::query()->where('company_id', $companyId)->where('is_active', true)->when($user->branch_id, fn ($q) => $q->whereKey($user->branch_id))->orderBy('name')->get(['id', 'code', 'name']),
             'customers' => Customer::query()->where('company_id', $companyId)->orderBy('name')->get(['id', 'name']),
+            'products' => Product::query()->where('company_id', $companyId)->where('is_active', true)->orderBy('sku')->get(['id', 'sku', 'name', 'unit', 'price', 'revenue_account_id']),
             'fiscalPeriods' => FiscalPeriod::query()->where('company_id', $companyId)->where('status', 'open')->orderBy('starts_on')->get(['id', 'starts_on', 'ends_on']),
-            'filters' => $request->only(['search', 'status', 'from', 'to']),
-            'invoices' => Invoice::query()->with('customer')->where('company_id', $companyId)
-                ->when($request->string('search')->trim()->value(), fn ($query, $search) => $query->where(function ($q) use ($search) { $q->where('invoice_number', 'like', '%'.$search.'%')->orWhereHas('customer', fn ($customer) => $customer->where('name', 'like', '%'.$search.'%')); }))
-                ->when($request->string('status')->trim()->value(), fn ($query, $status) => $query->where('status', $status))
-                ->when($request->date('from'), fn ($query, $date) => $query->whereDate('issued_on', '>=', $date))
-                ->when($request->date('to'), fn ($query, $date) => $query->whereDate('issued_on', '<=', $date))
-                ->latest('issued_on')->paginate(25)->withQueryString(),
-        ]);
-    }
-
-    public function createInvoice(Request $request)
-    {
-        $companyId = $request->user()?->company_id;
-        return Inertia::render('accounting/invoices', [
-            'showForm' => true,
-            'accounts' => Account::query()->where('company_id', $companyId)->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']),
-            'branches' => Branch::query()->where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'customers' => Customer::query()->where('company_id', $companyId)->orderBy('name')->get(['id', 'name']),
-            'fiscalPeriods' => FiscalPeriod::query()->where('company_id', $companyId)->where('status', 'open')->orderBy('starts_on')->get(['id', 'starts_on', 'ends_on']),
-            'invoices' => Invoice::query()->where('company_id', $companyId)->paginate(1),
+            'paymentMethods' => TemplateOption::query()->where(['company_id' => $companyId, 'group' => 'invoice_payment', 'is_active' => true])->orderBy('sort_order')->get(['id', 'code', 'label', 'account_id']),
+            'defaults' => [
+                'receivable_account_id' => $codes['1201'] ?? null,
+                'vat_output_account_id' => $codes['2301'] ?? null,
+                'discount_account_id' => $codes['5103'] ?? null,
+                'vat_rate' => $company->default_vat_rate,
+                'pph23_rate' => $company->default_pph23_rate,
+            ],
+            'company' => $company->only(['name', 'address', 'phone', 'email', 'invoice_bank_name', 'invoice_bank_account_name', 'invoice_bank_account_number']),
+            'nextNumber' => $service->nextInvoiceNumber($companyId, now()->toDateString()),
         ]);
     }
 
@@ -158,13 +173,24 @@ class TransactionController extends Controller
         abort_unless($invoice->company_id === $request->user()?->company_id, 404);
 
         return Inertia::render('accounting/invoice-detail', [
-            'invoice' => $invoice->load(['customer', 'lines', 'receiptAllocations.receipt']),
+            'invoice' => $invoice->load(['customer', 'lines.revenueAccount', 'otherIncomes.account', 'attachments', 'receiptAllocations.receipt']),
             'journalEntry' => JournalEntry::query()
                 ->where('company_id', $invoice->company_id)
                 ->where('source_type', TransactionPostingService::class)
                 ->where('source_id', (string) $invoice->id)
                 ->with('lines.account')
                 ->first(),
+        ]);
+    }
+
+    /** A4 print view of an issued invoice (company identity and bank details included). */
+    public function printInvoice(Request $request, Invoice $invoice)
+    {
+        abort_unless($invoice->company_id === $request->user()?->company_id, 404);
+
+        return Inertia::render('accounting/invoice-print', [
+            'invoice' => $invoice->load(['customer', 'lines', 'otherIncomes']),
+            'company' => $request->user()->company->only(['name', 'address', 'phone', 'email', 'invoice_bank_name', 'invoice_bank_account_name', 'invoice_bank_account_number']),
         ]);
     }
 }

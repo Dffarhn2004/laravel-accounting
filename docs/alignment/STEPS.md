@@ -15,23 +15,25 @@ DoD: test kontrak lulus, route lama tetap hidup.
 - [ ] Cek sidebar di browser (desktop/tablet/mobile), catat di HANDOFF-LOG.
 - [ ] CI: `npm run build` sebelum test.
 
-## [~] Langkah 2: Fondasi data master (2.1 sampai 2.4 selesai; 2.5 belum)
+## [x] Langkah 2: Fondasi data master
 Spek: `02-SYSTEM.md`, `03-INPUTAN-TRANSAKSI.md` (Saldo Neraca, Modal Awal).
 1. [x] **COA seed lengkap**: awalan 1 Aset, 2 Kewajiban, 3 Ekuitas, 4 Pendapatan, 5 Beban; minimal 45 akun termasuk akun pengurang/akumulasi penyusutan, PPN, PPh23, hutang usaha, piutang, persediaan, kas/bank. Seeder idempoten.
 2. [x] **Master Akun**: ganti nama/definisi, tambah akun dalam kelompok, larang hapus akun terpakai; kolom Kode | Nama | Modul | Jenis | Definisi.
 3. [x] **Template Jurnal** (10 bagian dalam satu halaman): cabang/kota/brand; template tahun; produk dan harga; jenis persediaan; setting akun dan umur aset; metode bayar invoice/pelunasan; metode bayar beban/aset/persediaan; jenis transaksi kas/bank/hutang/modal; kategori akun Dari/Ke; akun yang boleh dipakai di modal awal. Perubahan tampil di dropdown form lain. *(Halaman + CRUD selesai dan dites; pemakaian di form lain menyusul di Langkah 3-5.)*
 4. [x] **Input Saldo Neraca** (grid 45 akun, posisi plus/minus, kartu aset/kewajiban/ekuitas/selisih/status) dan **Input Setoran Modal Awal** (daftar harta/hutang, cut-off, aset masuk register) sebagai dua halaman terpisah, **saling eksklusif per cabang**, posting tepat sekali.
-5. [ ] Pengaturan & Backup: identitas usaha, default PPN/PPh23 (backup/restore menunggu ADR-006).
+5. [x] Pengaturan & Backup: identitas usaha, rekening invoice, default PPN/PPh23 (backup/restore, data contoh, dan reset menunggu ADR-006; penerapan pajak di Invoice menunggu Langkah 3 dan ADR-008).
 
 DoD: dua jalur saldo awal menghasilkan neraca seimbang; memakai keduanya di cabang yang sama ditolak; test idempotensi.
 
-## [ ] Langkah 3: Vertikal Invoice sampai Dashboard
+## [~] Langkah 3: Vertikal Invoice sampai Dashboard (3.1-3.5 selesai; menunggu cek browser + commit)
 Spek: `03` (Invoice), `04` (Data Pendapatan), `05` (JU, BB, LR, Neraca, Cashflow), `07-DASHBOARD.md`.
-1. **Input Invoice** penuh: maks 15 baris produk, mode harga master/manual, diskon %, maks 3 pendapatan lain, PPN, PPh23 dari DPP, dibayar/sisa piutang, nomor INV otomatis unik, maks 5 lampiran, preview/cetak A4, reset.
-2. **Data Pendapatan** (26 kolom persis, cari, filter cabang, bukti, export CSV; koreksi via reversal).
-3. **Jurnal Umum** (filter cabang/sumber/bulan/cari, drilldown sumber) dan **Buku Besar** (detail akun + ringkasan semua akun).
-4. **LR Konsolidasi** (matriks Jan-Des, hierarki, GM/EBITDA/EBIT/EBT), **LR per Cabang**, **Neraca** (saldo awal vs akhir, growth, cek balance), **Cashflow** metode tidak langsung (kas akhir = kas neraca).
-5. **Dashboard**: 6 KPI (Kas = akun kas/bank saja), filter global cabang+periode, 8 kontrol integritas, blok sekunder berisi data nyata.
+
+Prasyarat aktif: validasi Invoice sudah membatasi customer, cabang, periode, dan akun pada `company_id` baik di HTTP request maupun service. Sebelum membuat posting PPN/PPh23, konfirmasi perlakuan jurnal pajak pada ADR-008 (akun penampung dan dampak PPh23 terhadap kas/piutang).
+1. [x] **Input Invoice** penuh (selesai di server + UI, lihat HANDOFF sesi 9; belum dicoba di browser): maks 15 baris produk, mode harga master/manual, diskon %, maks 3 pendapatan lain, PPN, PPh23 dari DPP, dibayar/sisa piutang, nomor INV otomatis unik, maks 5 lampiran, preview/cetak A4, reset.
+2. [x] **Data Pendapatan** (selesai server+UI, belum dicoba di browser; 26 kolom persis, cari, filter cabang, bukti, export CSV; koreksi via reversal).
+3. [x] **Jurnal Umum** (filter cabang/sumber/bulan/cari, drilldown sumber) dan **Buku Besar** (selesai server+UI, belum dicoba di browser; (detail akun + ringkasan semua akun).
+4. [x] **LR Konsolidasi** (selesai server+UI, belum dicoba di browser; matriks Jan-Des, hierarki, GM/EBITDA/EBIT/EBT), **LR per Cabang**, **Neraca** (saldo awal vs akhir, growth, cek balance), **Cashflow** metode tidak langsung (kas akhir = kas neraca).
+5. [x] **Dashboard** (selesai server+UI, belum dicoba di browser): 6 KPI (Kas = akun kas/bank saja), filter global cabang+periode, 8 kontrol integritas, blok sekunder berisi data nyata.
 
 DoD: ACC-01..04, 14, 16, 21, 22 lulus; satu invoice mengalir ke semua laporan dan dashboard.
 

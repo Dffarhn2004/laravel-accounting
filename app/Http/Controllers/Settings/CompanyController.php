@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\CompanyUpdateRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,13 +15,12 @@ class CompanyController extends Controller
         return Inertia::render('settings/company', ['company' => $request->user()->company]);
     }
 
-    public function update(Request $request): RedirectResponse
+    public function update(CompanyUpdateRequest $request): RedirectResponse
     {
         $company = $request->user()->company;
         abort_unless($company, 404);
-        $data = $request->validate(['name' => ['required', 'string', 'max:255'], 'code' => ['required', 'string', 'max:50', 'unique:companies,code,'.$company->id]]);
-        $company->update($data);
+        $company->update($request->validated());
 
-        return back()->with('success', 'Company profile updated.');
+        return to_route('company.edit')->with('success', 'Pengaturan usaha berhasil disimpan.');
     }
 }
