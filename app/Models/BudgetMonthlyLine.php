@@ -11,7 +11,7 @@ class BudgetMonthlyLine extends Model
 
     protected function casts(): array
     {
-        return ['amount' => 'decimal:2'];
+        return ['amount' => 'decimal:2', 'quantity' => 'decimal:2'];
     }
 
     public function budget(): BelongsTo

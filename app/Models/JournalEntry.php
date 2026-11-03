@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class JournalEntry extends Model
 {
@@ -15,11 +17,38 @@ class JournalEntry extends Model
         return ['posted_on' => 'date'];
     }
 
-    public function company(): BelongsTo { return $this->belongsTo(Company::class); }
-    public function branch(): BelongsTo { return $this->belongsTo(Branch::class); }
-    public function fiscalPeriod(): BelongsTo { return $this->belongsTo(FiscalPeriod::class); }
-    public function lines(): HasMany { return $this->hasMany(JournalLine::class); }
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
 
-    public function reversal(): BelongsTo { return $this->belongsTo(self::class, 'reversal_of_id'); }
-    public function reversedEntry(): HasOne { return $this->hasOne(self::class, 'reversal_of_id'); }
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    public function fiscalPeriod(): BelongsTo
+    {
+        return $this->belongsTo(FiscalPeriod::class);
+    }
+
+    public function lines(): HasMany
+    {
+        return $this->hasMany(JournalLine::class);
+    }
+
+    public function attachments(): MorphMany
+    {
+        return $this->morphMany(Attachment::class, 'attachable');
+    }
+
+    public function reversal(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'reversal_of_id');
+    }
+
+    public function reversedEntry(): HasOne
+    {
+        return $this->hasOne(self::class, 'reversal_of_id');
+    }
 }

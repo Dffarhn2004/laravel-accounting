@@ -10,6 +10,11 @@ class Budget extends Model
 {
     protected $guarded = [];
 
+    protected function casts(): array
+    {
+        return ['rate' => 'decimal:2'];
+    }
+
     public function company(): BelongsTo { return $this->belongsTo(Company::class); }
     public function branch(): BelongsTo { return $this->belongsTo(Branch::class); }
     public function account(): BelongsTo { return $this->belongsTo(Account::class); }

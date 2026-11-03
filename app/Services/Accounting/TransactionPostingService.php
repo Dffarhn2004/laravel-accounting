@@ -11,7 +11,9 @@ use App\Models\FiscalPeriod;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\Receipt;
-use App\Models\Vendor;
+use App\Models\ReceiptAllocation;
+use App\Models\TemplateOption;
+use App\Support\Accounting\Periods;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -23,8 +25,8 @@ class TransactionPostingService
             $this->scope($data);
             $expense = Expense::where('company_id', $data['company_id'])
                 ->lockForUpdate()->findOrFail($data['expense_id']);
-            $paid = $expense->payments()->sum('amount');
-            $remaining = bcsub((string) $expense->amount, (string) $paid, 2);
+            $paid = $this->settledAmount($expense);
+            $remaining = bcsub((string) $expense->amount, $paid, 2);
             if (bccomp((string) $data['amount'], '0', 2) <= 0 ||
                 bccomp((string) $data['amount'], $remaining, 2) > 0) {
                 throw new InvalidArgumentException('Payment exceeds expense balance.');
@@ -41,9 +43,11 @@ class TransactionPostingService
             ]);
             $newPaid = bcadd((string) $paid, (string) $data['amount'], 2);
             $expense->update(['status' => bccomp($newPaid, (string) $expense->amount, 2) === 0 ? 'paid' : 'partial']);
+
             return $payment;
         });
     }
+
     /** Next automatic reference for the expense year (BBN-YYYY-00001), shown as "No Trx" in the journal. */
     public function nextExpenseReference(int $companyId, string $expenseDate): string
     {
@@ -178,7 +182,16 @@ class TransactionPostingService
                 $revenueId = (int) ($line['revenue_account_id'] ?? $defaultRevenueId);
                 $this->account($companyId, $revenueId, 'income');
                 $gross = bcmul((string) $line['quantity'], (string) $line['unit_price'], 2);
-                $discount = bcdiv(bcmul($gross, (string) ($line['discount_percent'] ?? '0'), 4), '100', 2);
+                if (array_key_exists('discount_amount', $line) && $line['discount_amount'] !== null && $line['discount_amount'] !== '') {
+                    $discount = bcadd((string) $line['discount_amount'], '0', 2);
+                    if (bccomp($discount, '0', 2) < 0 || bccomp($discount, $gross, 2) > 0) {
+                        throw new InvalidArgumentException('Line discount must be between 0 and the line gross.');
+                    }
+                    $percent = bccomp($gross, '0', 2) > 0 ? bcdiv(bcmul($discount, '100', 4), $gross, 2) : '0.00';
+                } else {
+                    $percent = (string) ($line['discount_percent'] ?? '0');
+                    $discount = bcdiv(bcmul($gross, $percent, 4), '100', 2);
+                }
                 $net = bcsub($gross, $discount, 2);
                 $discountTotal = bcadd($discountTotal, $discount, 2);
                 $dpp = bcadd($dpp, $net, 2);
@@ -187,7 +200,7 @@ class TransactionPostingService
                     'description' => $line['description'],
                     'quantity' => $line['quantity'],
                     'unit_price' => $line['unit_price'],
-                    'discount_percent' => $line['discount_percent'] ?? '0',
+                    'discount_percent' => $percent,
                     'line_total' => $net,
                     'product_id' => $line['product_id'] ?? null,
                     'revenue_account_id' => $revenueId,
@@ -206,8 +219,16 @@ class TransactionPostingService
             }
             $dpp = bcadd($dpp, $otherTotal, 2);
 
-            $vatRate = $vatEnabled ? (string) $data['vat_rate'] : '0';
-            $vatAmount = bcdiv(bcmul($dpp, $vatRate, 4), '100', 2);
+            if ($vatEnabled && array_key_exists('vat_amount', $data) && $data['vat_amount'] !== null && $data['vat_amount'] !== '') {
+                $vatAmount = bcadd((string) $data['vat_amount'], '0', 2);
+                if (bccomp($vatAmount, '0', 2) < 0) {
+                    throw new InvalidArgumentException('VAT amount cannot be negative.');
+                }
+                $vatRate = bccomp($dpp, '0', 2) > 0 ? bcdiv(bcmul($vatAmount, '100', 4), $dpp, 2) : '0.00';
+            } else {
+                $vatRate = $vatEnabled ? (string) $data['vat_rate'] : '0';
+                $vatAmount = bcdiv(bcmul($dpp, $vatRate, 4), '100', 2);
+            }
             $pph23Rate = (string) ($data['pph23_rate'] ?? '0');
             $pph23Amount = bcdiv(bcmul($dpp, $pph23Rate, 4), '100', 2);
             $total = bcadd($dpp, $vatAmount, 2);
@@ -321,7 +342,8 @@ class TransactionPostingService
             }
 
             $laterReceipt = $invoice->receiptAllocations()->whereHas('receipt', fn ($q) => $q
-                ->whereNull('journal_entry_id')->orWhere('journal_entry_id', '!=', $invoice->journal_entry_id))->exists();
+                ->whereNull('reversed_at')
+                ->where(fn ($q2) => $q2->whereNull('journal_entry_id')->orWhere('journal_entry_id', '!=', $invoice->journal_entry_id)))->exists();
             if ($laterReceipt) {
                 throw new InvalidArgumentException('Invoice sudah memiliki pelunasan susulan. Batalkan pelunasan terlebih dahulu.');
             }
@@ -374,8 +396,8 @@ class TransactionPostingService
         return DB::transaction(function () use ($data) {
             $this->scope($data);
             $invoice = Invoice::where('company_id', $data['company_id'])->lockForUpdate()->findOrFail($data['invoice_id']);
-            $paid = $invoice->receiptAllocations()->sum('amount');
-            $remaining = bcsub((string) $invoice->total, (string) $paid, 2);
+            $paid = $this->liveAllocated($invoice);
+            $remaining = bcsub((string) $invoice->total, $paid, 2);
             if (bccomp((string) $data['amount'], $remaining, 2) > 0) {
                 throw new InvalidArgumentException('Receipt exceeds invoice balance.');
             }
@@ -388,6 +410,7 @@ class TransactionPostingService
                 ['account_id' => $data['cash_account_id'], 'debit' => $data['amount'], 'credit' => '0'],
                 ['account_id' => $data['receivable_account_id'], 'debit' => '0', 'credit' => $data['amount']],
             ]);
+
             return $receipt;
         });
     }
@@ -395,6 +418,208 @@ class TransactionPostingService
     public function settleInvoice(array $data): Receipt
     {
         return $this->receipt($data);
+    }
+
+    /**
+     * Settle one open invoice (PRD 03 #5). Branch and the receivable account come from the invoice.
+     * Cash is the template payment method. Optional PPh23 (ADR-008) is booked only when the customer
+     * withholds: Dr cash (net) + Dr 1404, Cr receivable (gross).
+     *
+     * @param  array{company_id:int, invoice_id:int, received_on:string, payment_method:string, amount:string, pph23_amount?:string, description:string, idempotency_key:string, created_by?:int}  $data
+     */
+    public function collectReceivable(array $data): Receipt
+    {
+        return DB::transaction(function () use ($data) {
+            $companyId = (int) $data['company_id'];
+            $invoice = Invoice::where('company_id', $companyId)->lockForUpdate()->findOrFail($data['invoice_id']);
+            if ($invoice->status === 'reversed') {
+                throw new InvalidArgumentException('Invoice sudah dibalik.');
+            }
+            if (! $invoice->receivable_account_id) {
+                throw new InvalidArgumentException('Invoice ini tidak memiliki akun piutang.');
+            }
+
+            $receivedOn = (string) $data['received_on'];
+            if ($receivedOn < $invoice->issued_on->toDateString()) {
+                throw new InvalidArgumentException('Tanggal bayar tidak boleh sebelum tanggal invoice.');
+            }
+            $period = Periods::openFor($companyId, $receivedOn);
+            if (! $period) {
+                throw new InvalidArgumentException('Tidak ada tahun buku terbuka untuk tanggal ini.');
+            }
+            if (Receipt::where('idempotency_key', $data['idempotency_key'])->exists()) {
+                throw new InvalidArgumentException('Pelunasan ini sudah diposting.');
+            }
+
+            $option = TemplateOption::where([
+                'company_id' => $companyId,
+                'group' => 'invoice_payment',
+                'code' => $data['payment_method'],
+                'is_active' => true,
+            ])->first();
+            $cash = $option?->account_id
+                ? Account::where('company_id', $companyId)->where('is_active', true)->find($option->account_id)
+                : null;
+            if (! $cash || $cash->type !== 'asset') {
+                throw new InvalidArgumentException('Jenis pembayaran harus kas atau bank. Atur di Template Jurnal.');
+            }
+            $receivable = $this->account($companyId, $invoice->receivable_account_id, 'asset');
+            if ($cash->id === $receivable->id) {
+                throw new InvalidArgumentException('Akun kas tidak boleh sama dengan akun piutang.');
+            }
+
+            $cashAmount = bcadd((string) $data['amount'], '0', 2);
+            $withheld = bcadd((string) ($data['pph23_amount'] ?? '0'), '0', 2);
+            if (bccomp($cashAmount, '0', 2) <= 0) {
+                throw new InvalidArgumentException('Jumlah dibayar harus lebih dari nol.');
+            }
+            if (bccomp($withheld, '0', 2) < 0) {
+                throw new InvalidArgumentException('PPh23 dipotong tidak boleh negatif.');
+            }
+            $gross = bcadd($cashAmount, $withheld, 2);
+            $paid = $this->liveAllocated($invoice);
+            $remaining = bcsub((string) $invoice->total, $paid, 2);
+            if (bccomp($remaining, '0', 2) <= 0) {
+                throw new InvalidArgumentException('Invoice ini sudah lunas.');
+            }
+            if (bccomp($gross, $remaining, 2) > 0) {
+                throw new InvalidArgumentException('Pembayaran melebihi sisa piutang.');
+            }
+            $withheldSoFar = LedgerService::money(
+                Receipt::where('invoice_id', $invoice->id)->whereNull('reversed_at')->sum('pph23_amount')
+            );
+            $estimateLeft = bcsub((string) $invoice->pph23_amount, $withheldSoFar, 2);
+            if (bccomp($withheld, $estimateLeft, 2) > 0) {
+                throw new InvalidArgumentException('PPh23 dipotong melebihi estimasi yang belum dibukukan.');
+            }
+
+            $lines = [['account_id' => $cash->id, 'debit' => $cashAmount, 'credit' => '0']];
+            if (bccomp($withheld, '0', 2) > 0) {
+                $prepaid = Account::where('company_id', $companyId)->where('code', '1404')->where('is_active', true)->first();
+                if (! $prepaid) {
+                    throw new InvalidArgumentException('Akun 1404 PPh23 Dibayar di Muka tidak ditemukan.');
+                }
+                $lines[] = ['account_id' => $prepaid->id, 'debit' => $withheld, 'credit' => '0'];
+            }
+            $lines[] = ['account_id' => $receivable->id, 'debit' => '0', 'credit' => $gross];
+
+            $number = $this->nextReceiptNumber($companyId, $receivedOn);
+            $receipt = Receipt::create([
+                'company_id' => $companyId,
+                'branch_id' => $invoice->branch_id,
+                'fiscal_period_id' => $period->id,
+                'receipt_number' => $number,
+                'received_on' => $receivedOn,
+                'invoice_id' => $invoice->id,
+                'cash_account_id' => $cash->id,
+                'receivable_account_id' => $receivable->id,
+                'amount' => $cashAmount,
+                'pph23_amount' => $withheld,
+                'description' => $data['description'],
+                'payment_method' => $data['payment_method'],
+                'status' => 'posted',
+                'idempotency_key' => $data['idempotency_key'],
+            ]);
+            $entry = $this->post([
+                'company_id' => $companyId,
+                'branch_id' => $invoice->branch_id,
+                'fiscal_period_id' => $period->id,
+                'posted_on' => $receivedOn,
+                'description' => $data['description'],
+                'idempotency_key' => $data['idempotency_key'],
+                'source_kind' => 'receipt',
+                'reference' => $number,
+                'created_by' => $data['created_by'] ?? null,
+            ], $receipt->id, $lines);
+            $receipt->update(['journal_entry_id' => $entry->id]);
+            $receipt->allocations()->create(['invoice_id' => $invoice->id, 'amount' => $gross]);
+            $this->refreshInvoiceStatus($invoice);
+
+            return $receipt->fresh('allocations');
+        });
+    }
+
+    /**
+     * Cancel a later settlement. The invoice status returns to whatever is still unpaid,
+     * so the invoice itself can then be reversed.
+     *
+     * @param  array{company_id:int, reason:string, posted_on?:string, created_by?:int}  $data
+     */
+    public function reverseReceipt(Receipt $receipt, array $data): Receipt
+    {
+        return DB::transaction(function () use ($receipt, $data) {
+            $receipt = Receipt::where('company_id', $data['company_id'])->lockForUpdate()->findOrFail($receipt->id);
+            if ($receipt->status === 'reversed' || $receipt->reversed_at) {
+                throw new InvalidArgumentException('Pelunasan ini sudah dibalik.');
+            }
+            if (! $receipt->journal_entry_id || ! str_starts_with((string) $receipt->receipt_number, 'PLT-')) {
+                throw new InvalidArgumentException('Pembayaran awal pada invoice dibalik bersama invoice, bukan dari menu ini.');
+            }
+
+            $postedOn = $data['posted_on'] ?? now()->toDateString();
+            if ($postedOn < $receipt->received_on->toDateString()) {
+                throw new InvalidArgumentException('Tanggal pembalikan tidak boleh sebelum tanggal bayar.');
+            }
+            $period = Periods::openFor((int) $data['company_id'], $postedOn);
+            if (! $period) {
+                throw new InvalidArgumentException('Tidak ada tahun buku terbuka untuk tanggal pembalikan.');
+            }
+
+            $reversal = app(JournalReversalService::class)->reverse(
+                JournalEntry::where('company_id', $data['company_id'])->findOrFail($receipt->journal_entry_id),
+                [
+                    'posted_on' => $postedOn,
+                    'fiscal_period_id' => $period->id,
+                    'description' => 'Pembalikan pelunasan '.$receipt->receipt_number.': '.$data['reason'],
+                    'idempotency_key' => 'receipt-reversal-'.$receipt->id,
+                    'created_by' => $data['created_by'] ?? null,
+                ],
+            );
+            $receipt->update([
+                'status' => 'reversed',
+                'reversal_journal_entry_id' => $reversal->id,
+                'reversal_reason' => $data['reason'],
+                'reversed_at' => now(),
+            ]);
+            $invoice = Invoice::where('company_id', $data['company_id'])->lockForUpdate()->find($receipt->invoice_id);
+            if ($invoice && $invoice->status !== 'reversed') {
+                $this->refreshInvoiceStatus($invoice);
+            }
+
+            return $receipt->fresh();
+        });
+    }
+
+    /** Allocations whose receipt has not been reversed, including the payment taken when the invoice was issued. */
+    private function liveAllocated(Invoice $invoice): string
+    {
+        return LedgerService::money(
+            ReceiptAllocation::where('invoice_id', $invoice->id)
+                ->whereHas('receipt', fn ($q) => $q->whereNull('reversed_at'))
+                ->sum('amount')
+        );
+    }
+
+    private function refreshInvoiceStatus(Invoice $invoice): void
+    {
+        if ($invoice->status === 'reversed') {
+            return;
+        }
+        $paid = $this->liveAllocated($invoice);
+        $status = match (true) {
+            bccomp($paid, '0', 2) === 0 => 'unpaid',
+            bccomp($paid, (string) $invoice->total, 2) >= 0 => 'paid',
+            default => 'partial',
+        };
+        $invoice->update(['status' => $status]);
+    }
+
+    private function nextReceiptNumber(int $companyId, string $receivedOn): string
+    {
+        $prefix = 'PLT-'.substr($receivedOn, 0, 4).'-';
+        $last = Receipt::where('company_id', $companyId)->where('receipt_number', 'like', $prefix.'%')->orderByDesc('receipt_number')->value('receipt_number');
+
+        return $prefix.str_pad((string) ($last ? ((int) substr($last, strlen($prefix)) + 1) : 1), 5, '0', STR_PAD_LEFT);
     }
 
     public function expensePayment(array $data): ExpensePayment
@@ -405,8 +630,8 @@ class TransactionPostingService
                 ->where('company_id', $data['company_id'])
                 ->lockForUpdate()
                 ->findOrFail($data['expense_id']);
-            $paid = $expense->payments()->sum('amount');
-            $remaining = bcsub((string) $expense->amount, (string) $paid, 2);
+            $paid = $this->settledAmount($expense);
+            $remaining = bcsub((string) $expense->amount, $paid, 2);
             if (bccomp((string) $data['amount'], $remaining, 2) > 0) {
                 throw new InvalidArgumentException('Payment exceeds expense balance.');
             }
@@ -428,6 +653,7 @@ class TransactionPostingService
                 ['account_id' => $data['payable_account_id'], 'debit' => $data['amount'], 'credit' => '0'],
                 ['account_id' => $data['cash_account_id'], 'debit' => '0', 'credit' => $data['amount']],
             ]);
+
             return $payment;
         });
     }
@@ -447,7 +673,7 @@ class TransactionPostingService
             if ($expense->status === 'reversed') {
                 throw new InvalidArgumentException('Beban sudah dibalik.');
             }
-            if ($expense->payments()->exists()) {
+            if ($expense->payments()->whereNull('reversed_at')->exists()) {
                 throw new InvalidArgumentException('Beban sudah memiliki pelunasan hutang. Batalkan pelunasan terlebih dahulu.');
             }
 
@@ -500,6 +726,12 @@ class TransactionPostingService
     {
         FiscalPeriod::where('company_id', $data['company_id'])->findOrFail($data['fiscal_period_id']);
         Branch::where('company_id', $data['company_id'])->findOrFail($data['branch_id']);
+    }
+
+    /** Live settlements only. A reversed cash/bank payment must not keep the expense paid. */
+    private function settledAmount(Expense $expense): string
+    {
+        return LedgerService::money($expense->payments()->whereNull('reversed_at')->sum('amount'));
     }
 
     private function unique(string $model, array $data): void

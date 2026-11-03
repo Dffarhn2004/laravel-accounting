@@ -5,7 +5,6 @@ namespace App\Services\Accounting;
 use App\Models\Account;
 use App\Models\Branch;
 use App\Models\CashAccount;
-use App\Models\Expense;
 use App\Models\FixedAsset;
 use App\Models\Invoice;
 use Illuminate\Support\Carbon;
@@ -85,7 +84,7 @@ class DashboardService
             'matrix' => collect(['Total Pendapatan Operasional', 'Gross Margin', 'EBITDA', 'EBIT', 'EBT (Laba Sebelum Pajak)', 'Laba Bersih'])
                 ->map(fn ($label) => ['label' => $label, 'values' => $monthRow($label)])->all(),
             'top_receivables' => $this->topReceivables($companyId, $scope, $to),
-            'top_payables' => $this->topPayables($companyId, $scope),
+            'top_payables' => $this->topPayables($companyId, $scope, $to),
             'integrity' => $this->integrity($companyId, $from, $to, $scope, $bound, $accounts, $nets, $statement, $period, $flow),
             // Honest gaps: shown as "belum tersedia", never as made-up numbers.
             'unavailable' => [
@@ -167,18 +166,9 @@ class DashboardService
         return $this->receivableRows($companyId, $branch, $to)->sortByDesc(fn ($r) => (float) $r['amount'])->take(5)->values()->all();
     }
 
-    private function payableRows(int $companyId, ?int $branch)
+    private function topPayables(int $companyId, ?int $branch, string $to): array
     {
-        return Expense::query()->where('company_id', $companyId)->whereIn('status', ['open', 'partial'])
-            ->when($branch, fn ($q, $id) => $q->where('branch_id', $id))
-            ->with('vendor:id,name')->withSum('payments as paid', 'amount')->get()
-            ->map(fn (Expense $e) => ['id' => $e->id, 'number' => $e->reference ?: 'EXP-'.$e->id, 'party' => $e->vendor?->name, 'date' => $e->expense_date->toDateString(), 'amount' => bcsub((string) $e->amount, (string) ($e->paid ?? 0), 2)])
-            ->filter(fn ($r) => bccomp($r['amount'], '0', 2) > 0);
-    }
-
-    private function topPayables(int $companyId, ?int $branch): array
-    {
-        return $this->payableRows($companyId, $branch)->sortByDesc(fn ($r) => (float) $r['amount'])->take(5)->values()->all();
+        return app(PayableReportService::class)->top($companyId, $branch, $to);
     }
 
     /** @return array{status:string, summary:string, controls: array<int, array<string, mixed>>} */
@@ -227,11 +217,11 @@ class DashboardService
             'Buku besar '.$idr($gl).' · invoice '.$idr($sub).(bccomp($gl, $sub, 2) === 0 ? '' : ' (selisih dapat berasal dari saldo awal yang belum dirinci per invoice)'), '/accounting/aging');
 
         // 7. Payable subledger vs GL.
-        $apAccounts = Expense::where('company_id', $companyId)->distinct()->pluck('settlement_account_id')->filter(fn ($id) => ($accounts[$id]->type ?? null) === 'liability');
-        $glAp = $apAccounts->reduce(fn ($c, $id) => bcadd($c, bcmul($nets[$id] ?? '0.00', '-1', 2), 2), '0.00');
-        $subAp = $this->payableRows($companyId, $scope)->reduce(fn ($c, $r) => bcadd($c, $r['amount'], 2), '0.00');
+        $payable = app(PayableReportService::class)->build(['company_id' => $companyId, 'branch_id' => $scope, 'as_of' => $to, 'status' => 'all']);
+        $glAp = $payable['reconciliation']['ledger'];
+        $subAp = $payable['reconciliation']['documents'];
         $add('payable', 'Hutang per dokumen = Hutang di Buku Besar', bccomp($glAp, $subAp, 2) === 0 ? 'ok' : 'warn',
-            'Buku besar '.$idr($glAp).' · dokumen '.$idr($subAp).(bccomp($glAp, $subAp, 2) === 0 ? '' : ' (selisih dapat berasal dari saldo awal atau hutang aset/persediaan)'), '/transactions/expenses');
+            'Buku besar '.$idr($glAp).' · dokumen '.$idr($subAp).(bccomp($payable['reconciliation']['undocumented'], '0', 2) === 0 ? '' : ' (selisih '.$idr($payable['reconciliation']['undocumented']).' tanpa dokumen)'), '/laporan/lap-hutang');
 
         // 8. Fixed asset register vs GL.
         $assetAccounts = FixedAsset::where('company_id', $companyId)->distinct()->pluck('asset_account_id');
@@ -239,7 +229,7 @@ class DashboardService
         $register = (string) FixedAsset::where('company_id', $companyId)->when($scope, fn ($q, $id) => $q->where('branch_id', $id))->where('status', 'active')->sum('cost');
         $register = bcadd($register, '0', 2);
         $add('assets', 'Register aset = Aset tetap di Buku Besar', bccomp($glAsset, $register, 2) === 0 ? 'ok' : 'warn',
-            'Buku besar '.$idr($glAsset).' · register '.$idr($register).(bccomp($glAsset, $register, 2) === 0 ? '' : ' (aset saldo awal belum masuk register)'), '/accounting/fixed-assets');
+            'Buku besar '.$idr($glAsset).' · register '.$idr($register).(bccomp($glAsset, $register, 2) === 0 ? '' : ' (selisih berasal dari jurnal manual pada akun aset)'), '/laporan/lap-asset');
 
         $statuses = array_column($controls, 'status');
         $status = $entryCount === 0 ? 'empty' : (in_array('fail', $statuses, true) ? 'invalid' : (in_array('warn', $statuses, true) ? 'attention' : 'valid'));

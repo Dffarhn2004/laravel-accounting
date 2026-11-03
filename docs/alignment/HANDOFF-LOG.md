@@ -3,6 +3,88 @@
 Format entri: tanggal · agent/orang · apa yang dikerjakan · status test · hal yang menggantung · saran langkah berikut.
 
 ---
+## 2026-11-04 · Claude (Sonnet 5.5) · Langkah 7.1 Anggaran
+- Empat menu Anggaran aktif (`ang-data`, `ang-rekap`, `ang-kinerja` `pending` → `partial`; Input sudah partial). Migrasi `2026_11_04_030000_add_quantity_and_rate_to_budgets` (kolom `unit`, `rate`, `quantity`) sudah dijalankan di dev DB.
+- `BudgetPlanService` (simpan, daftar, ringkasan cabang, rekap, kinerja, kelas pencapaian) dan `BudgetController` ditulis ulang. Form lama (12 nominal, draf) diganti Qty x Tarif; baris tersimpan berstatus `published` agar `BudgetReportService::compare` lama tetap bekerja. `BudgetService::create` lama dan `BudgetTest` tidak diubah.
+- Rekap memakai `ProfitLossService::assemble` (kini `public`) sehingga strukturnya sama dengan Laba Rugi. Kinerja: target 0 = N/A, tanpa pembagian nol. Panel 'Rasio' placeholder di halaman Input dihapus (rasio nyata di 7.2).
+- Verifikasi: `BudgetPlanTest` 7/7, seluruh suite 261/261 (2608 assertion), `tsc` bersih, build OK, `route:cache` lalu `route:clear` OK. Belum dicoba di browser. Belum di-commit.
+- Terbuka: ambang kuning 10 poin (konfirmasi user); hapus anggaran tanpa arsip; kartu achievement anggaran di Dashboard masih 'Belum tersedia'.
+- Langkah berikut: 7.2 Analisis Rasio (19 rasio, health score) dan Bagi Hasil & Dividen. Tetap disarankan commit pekerjaan Langkah 1-7.1.
+
+---
+## 2026-11-04 · Claude (Sonnet 5.5) · Langkah 6.2 Laporan Pajak
+- Menu `/laporan/lap-pajak` `pending` → `partial`. `TaxReportService` + `TaxReportController` (index + export CSV) + `accounting/lap-pajak.tsx`. Filter tahun, cabang, jenis pajak, masa, status (semua / belum lunas / lunas / lewat perkiraan jatuh tempo).
+- Blok A ringkasan per pajak (PPN 2301, PPh 21 2302, PPh 23 2303, PPh Badan 2304), B status per masa, C buku pembantu (maks 500 baris, tautan ke sumber), D beban pajak akun 55xx per bulan. Rekonsiliasi per pajak ke buku besar.
+- Aturan: terutang = kredit akun utang pajak per bulan, setoran = debit, FIFO ke masa terlama, kelebihan menunggu dan melunasi masa berikutnya. Jurnal yang dibalik dan jurnal pembaliknya dikeluarkan berpasangan. 1403/1404 hanya informasi. Jatuh tempo perkiraan, diberi label di UI dan CSV.
+- Verifikasi: `TaxReportTest` 5/5, seluruh suite 254/254 (2535 assertion), `tsc` bersih, build OK, `route:cache` lalu `route:clear` OK. Belum dicoba di browser. Tidak ada migrasi. Belum di-commit.
+- Terbuka: tidak ada form setoran pajak khusus (pakai Jurnal Manual / Kas Bank); PPh 21 dan PPh Badan hanya terbaca bila jurnalnya memakai 2302/2304; tarif dan jatuh tempo perlu tinjauan akuntan.
+- Langkah berikut: Langkah 7 Anggaran, Rasio, Dividen. Disarankan commit dulu pekerjaan Langkah 1-6.
+
+---
+## 2026-11-04 · Grok · Langkah 6.1 Import Penjualan
+- Menu `/inputan/impor` `pending` → `partial`. Template CSV dan XLSX. Pratinjau tidak memposting; posting membaca berkas lagi. Satu No Order = satu invoice `INV-…` lunas ke akun penerimaan. Pajak di berkas dikredit ke 2301, ongkir ke akun pendapatan lain, biaya admin jurnal pendamping (debit beban, kredit akun penerimaan). HPP hanya bila SKU cocok, sebesar harga rata-rata cabang, bukan angka di berkas. No Order yang masih hidup dilewati. Batas 2 MB dan 500 order. Nomor batch `IMP-YYYY-00001`.
+- Batal batch membalik invoice, jurnal admin, dan pemakaian stok dari yang terakhir. Ditolak bila ada pelunasan susulan atau gerakan stok yang lebih baru. Jurnal dibalik, tidak dihapus. Laporan Pajak tetap `pending` (Langkah 6.2).
+- Verifikasi: `ImportSalesTest` 12/12, seluruh suite 249/249 (2484 assertion) sebelum penyesuaian pratinjau; tes pratinjau diulang setelah pratinjau mengembalikan halaman yang sama supaya berkas tetap terpilih. `tsc` bersih, build OK, `route:cache` lalu `route:clear` OK. Migrasi `2026_11_04_020000_create_import_sales_tables` sudah dijalankan di MySQL. Di browser (akun demo): template CSV terbaca, pratinjau `IMP-DEMO-1` tagihan 28.500, posting `IMP-2026-00001`, Data Pendapatan `INV-2026-00002` (pendapatan 26.000, PPN 2.500, kas 28.500), lalu batch dibatalkan. Belum di-commit.
+- Dev DB: customer `Pelanggan Impor` dan invoice `INV-2026-00002` tetap ada sebagai baris dibalik. Batch `IMP-2026-00001` status dibatalkan.
+- Langkah berikut: Langkah 6.2 Laporan Pajak (blok A-D, alokasi ke masa tertua; jatuh tempo hanya perkiraan, ADR-008).
+
+---
+## 2026-11-04 · Grok · Langkah 5.2 Aset dan D&A
+- Input `/transactions/fixed-assets` membaca jenis bayar (bagian 7) dan kelompok aset (bagian 5). Nomor `AST-YYYY-00001`, bukti maks 5, idempoten. Jurnal: debit akun aset, kredit kas/bank/hutang. Utang masuk daftar hutang dan ikut FIFO. Tanah (umur 0) tidak disusutkan. Residu tetap 0.
+- Penyusutan garis lurus mulai bulan setelah perolehan. Satu baris posting per aset per bulan (unik `fixed_asset_id` + `period_month`, plus `journal_entry_id`). Posting simulasi mengisi bulan yang terlewat berurutan dan tidak mengulang bulan yang sudah ada. Pembalikan penyusutan dari bulan terakhir; pembelian baru boleh dibalik setelah itu. Jurnal dibalik, tidak dihapus.
+- Register `/data/d-asset` 17 kolom, CSV, bukti. Aset cut-off modal awal masuk register (sumber Modal) tanpa jurnal perolehan kedua; penyusutan lanjut setelah bulan cut-off. Membalik setoran ditolak bila penyusutan aset itu masih hidup.
+- Simulasi `/data/simulasi` tiga tabel (jadwal, rekap beban, jurnal belum terposting) plus rekonsiliasi. Laporan `/laporan/lap-asset` merekonsiliasi harga dan akumulasi ke buku besar dan menampilkan selisih jurnal manual. Kontrol dashboard aset menaut ke laporan ini. KPI total aset tidak diubah. Menu Data Asset, Simulasi, dan Laporan Daftar Asset `pending` → `partial`.
+- Verifikasi: `FixedAssetTest` + `AssetFlowTest` 8/8, seluruh suite 237/237 (2397 assertion), `tsc` bersih, build OK, `route:cache` lalu `route:clear` OK. Di browser (akun demo): `AST-2026-00001` laptop kas 2.400.000 (1505, 4 tahun), pratinjau 50.000/bulan; posting Februari 50.000 sama dengan buku besar; laporan nilai buku 2.350.000 dan selisih harga serta akumulasi 0; penyusutan lalu pembelian dibalik sehingga aset aktif 0 dan baris tetap tampil Dibalik. Belum di-commit.
+- Dev DB: migrasi `2026_11_04_010000_extend_fixed_assets_for_register` sudah dijalankan. `AST-2026-00001` tetap di data demo sebagai baris Dibalik.
+- Langkah berikut: Langkah 6 Import Penjualan dan Pajak.
+
+---
+## 2026-11-03 · Grok · Langkah 5.1 Persediaan
+- Backdate persediaan diputuskan: tolak. Gerakan yang tanggalnya lebih awal daripada gerakan hidup terakhir pada cabang dan jenis yang sama ditolak. HPP tidak dihitung ulang.
+- Input `/inputan/persediaan` (kas, bank, utang, pemakaian), nomor `PRS-YYYY-00001`, ongkir dan pajak masuk nilai stok, bukti maks 5. Register `/data/d-persediaan` 19 kolom, CSV, pembalikan hanya gerakan terakhir. Laporan `/accounting/inventory` punya ringkasan, kartu stok, stok minimum, dan rekonsiliasi ke akun persediaan. Pembelian utang masuk daftar hutang. Menu Input dan Data Persediaan `pending` → `partial`.
+- Verifikasi: `InventoryTest` + `InventoryFlowTest` 5/5, seluruh suite 231/231 (2268 assertion), `tsc` bersih, build OK, `route:cache` lalu `route:clear` OK. Di browser (akun demo): jenis `BIJI` dibuat di Template Jurnal; pembelian kas `PRS-2026-00001` 100.700; pemakaian 2 pada rata-rata 10.070 masuk HPP; kartu stok qty akhir 8 dan selisih 0; pemakaian dibalik sehingga gerakan aktif 1 dan nilai stok = buku besar 100.700. Belum di-commit.
+- Dev DB: migrasi `2026_11_03_160000_add_inventory_movement_document_columns` sudah dijalankan. Jenis `BIJI` dan pembelian `PRS-2026-00001` tetap di data demo; pemakaian `PRS-2026-00002` tampil sebagai Dibalik.
+- Langkah berikut: Langkah 5.2 Input Pembelian Asset, Data Asset, Simulasi & Output D&A, dan Laporan Daftar Asset.
+
+---
+## 2026-11-03 · Grok · Langkah 4.5 Laporan Piutang + Laporan Daftar Hutang
+- Laporan Piutang di `/accounting/aging`: satu baris per invoice, ember ≤30 / 31–60 / >60, filter, tautan invoice, dan rekonsiliasi ke akun bermodul Piutang. Filter status hanya mengubah baris, bukan kartu umur atau rekonsiliasi.
+- Laporan Daftar Hutang di `/laporan/lap-hutang` (menu `pending` → `partial`): beban, modal awal, saldo neraca, dan pinjaman. Sisa bayar hutang yang tidak teralokasi mengurangi dokumen non-beban tertua pada akun yang sama. Selisih buku besar jadi baris Tanpa dokumen. PPN tidak masuk. Dashboard menaut kontrol hutang ke halaman ini; top 5 memakai dokumen yang sama. KPI hutang tidak diubah.
+- Verifikasi: `ReceivableAgingTest` 3/3, `PayableReportTest` 2/2, seluruh suite 227/227, `tsc` bersih, build OK, `route:cache` lalu `route:clear` OK. Di browser (akun demo): `INV-2026-00001` sisa 100.000 sama dengan buku besar dan tautannya membuka invoice; filter Lunas mengosongkan tabel tanpa mengubah rekonsiliasi. Laporan hutang dan filter akun 2101 menampilkan dokumen 0, tanpa dokumen 0, buku besar 0. Belum di-commit.
+- Langkah berikut: Langkah 5 Persediaan, Aset, dan D&A.
+
+---
+## 2026-11-03 · Grok · Langkah 4.4 Input Jurnal Manual + Data Jurnal Manual + Data Modal Awal
+- Form `/accounting/manual-journal` diganti: 2–6 baris, tahun buku dari tanggal, nomor `JM-YYYY-00001`, bukti, idempoten. Register `/data/d-jm` 12 kolom, CSV, bukti, dan pembalikan seluruh jurnal. Menu Data Jurnal Manual `pending` → `partial`.
+- Register `/data/d-modal` hanya setoran modal awal, 16 kolom. Baris plug modal pemilik tidak digandakan; akumulasi aset jadi baris kredit sendiri. Pembalikan melepas kunci idempoten sehingga cabang boleh menyetor ulang. Saldo Neraca tidak muncul dan tidak bisa dibalik dari menu ini. Menu Data Modal Awal `pending` → `partial`.
+- Verifikasi: `ManualJournalTest` 5/5, `OpeningCapitalRegisterTest` 3/3, seluruh suite 222/222, `tsc` bersih, build OK, `route:cache` lalu `route:clear` OK. Di browser (akun demo): jurnal `JM-2026-00001` 25.000 masuk register (debit = kredit), lalu dibalik sehingga jurnal aktif 0. Setoran kas 100.000 cabang Main Branch masuk Data Modal Awal, lalu dibalik sehingga setoran aktif 0. Kedua baris cek tetap tampil sebagai Dibalik. Belum di-commit.
+- Dev DB: migrasi `2026_11_03_140000_add_opening_reversal_columns` sudah dijalankan.
+- Langkah berikut: 4.5 Laporan Piutang (aging) dan Laporan Daftar Hutang.
+
+---
+## 2026-11-03 · Grok · Langkah 4.3 Input Pelunasan Piutang + Data Pelunasan Piutang
+- Form `/transactions/receivables` memilih satu invoice terbuka. Cabang dan akun piutang diambil dari invoice, bukan dari browser. Jurnal biasa: debit kas/bank, kredit piutang. PPh 23 opsional (ADR-008): debit kas neto + debit 1404, kredit piutang bruto. Nomor `PLT-YYYY-00001`. Pembalikan mengembalikan status invoice sehingga invoice boleh dibalik. Route lama `POST /accounting/receipts` tetap.
+- Register `/data/d-piutang` 16 kolom, filter, CSV, bukti, total tanpa baris dibalik. Menu Data Pelunasan Piutang `pending` → `partial`. Laporan Piutang (aging) belum dikerjakan.
+- Verifikasi: `ReceivableSettlementTest` 6/6, seluruh suite 214/214, `tsc` bersih, build OK, `route:cache` lalu `route:clear` OK. Di browser (akun demo): cicilan 40.000 atas `INV-2026-00001` masuk register sebagai `PLT-2026-00001` (jumlah diterima 40.000), lalu dibalik sehingga pelunasan aktif 0. PPh 23 tiga baris jurnal dibuktikan test, belum diulang di browser. Invoice demo itu tetap terbuka (unpaid) dan baris pelunasan tetap tampil sebagai Dibalik. Belum di-commit.
+- Dev DB: migrasi `2026_11_03_130000_add_receivable_settlement_columns` sudah dijalankan.
+- Langkah berikut: 4.4 Input Jurnal Manual + Data Jurnal Manual, plus Data Modal Awal.
+
+---
+## 2026-11-03 · Grok · Langkah 4.2 Input Pindah Saldo Kas/Bank + Data Kas & Bank
+- ADR-011 diputuskan FIFO per akun (user). Bayar hutang tidak memilih tagihan: hutang beban tertua pada akun yang sama dilunasi dulu, satu jurnal. Sisa tanpa dokumen (saldo awal/pinjaman) mengurangi buku besar selama tidak melebihi saldo akun itu.
+- `TreasuryPostingService::move()` / `reverse()`, register `/data/d-kasbank`, form `/transactions/cash-bank` (11 jenis dari Template Jurnal). Route lama `/accounting/treasury` tetap. Menu Data Kas & Bank `pending` → `partial`.
+- Verifikasi: `CashBankTest` 12/12, seluruh suite 208/208, `tsc` bersih, build OK, `route:cache` OK. Di browser (akun demo): form 11 jenis, akun Ke menyembunyikan akun Dari yang sama, pratinjau sisa, posting transfer `KAS-2026-00001` masuk register (debit = kredit 1.000), lalu dibalik sehingga total aktif 0. FIFO hutang dibuktikan test, belum diulang di browser. Transaksi cek itu tetap di data demo sebagai baris Dibalik (jurnal bersih nol). Belum di-commit.
+- Dev DB: `php artisan migrate`.
+- Langkah berikut: 4.3 Input Pelunasan Piutang + Data Pelunasan (cabang mengikuti invoice, tidak melebihi sisa).
+
+---
+## 2026-11-03 · Grok · Tinjauan status (tanpa perubahan kode)
+- User meminta cek apa yang masih kurang. Tidak ada perubahan fitur, test, atau centang checklist.
+- Posisi: Langkah 1–2 selesai; Langkah 3 (Invoice sampai Dashboard) dan Langkah 4.1 (Beban) selesai di server+UI, belum dicoba di browser, belum di-commit. Langkah 4.2–9 belum.
+- 19 menu masih `pending` ("Belum tersedia"). Gate E kosong di semua halaman. Kontrol palsu di header masih terbuka.
+- Saran langkah berikut: cek browser halaman Langkah 1–4.1, lalu putuskan ADR-011 sebelum Langkah 4.2 (bayar hutang).
+
+---
 ## 2026-11-01 (sesi 19) · Claude (Sonnet 5.5) · Template Jurnal: tab + tombol Tambah (dialog)
 - Masukan user (dengan tangkapan layar): 10 bagian Template Jurnal tampil sekaligus dalam satu halaman panjang; seharusnya per tab, dan tiap tab punya tombol Tambah, bukan baris input di dasar tabel (melanggar `10-IMPLEMENTATION-UI-RULES.md` baris 9).
 - `journal-template.tsx` ditulis ulang: 10 tab (`role=tablist`, panah kiri/kanan, tab aktif di URL lewat `history.replaceState` agar tidak memicu request atau skeleton), hanya isi tab aktif yang dirender; tombol **Tambah** per tab membuka dialog (`AddDialog`) berisi field tambah; baris tambah inline dihapus; edit baris yang ada tetap inline dengan tombol Simpan; keadaan kosong menjelaskan langkah berikutnya. Backend dan route tidak berubah.

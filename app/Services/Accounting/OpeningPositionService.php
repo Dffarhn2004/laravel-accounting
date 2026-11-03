@@ -4,12 +4,16 @@ namespace App\Services\Accounting;
 
 use App\Models\Account;
 use App\Models\AssetCategory;
-use App\Models\FiscalPeriod;
 use App\Models\Branch;
+use App\Models\FiscalPeriod;
+use App\Models\JournalEntry;
 use App\Models\OpeningBalance;
 use App\Models\TemplateOption;
+use App\Support\Accounting\Periods;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 
 /**
  * The two ways to start the books for a branch (PRD 03-INPUTAN-TRANSAKSI.md):
@@ -44,7 +48,7 @@ class OpeningPositionService
      * Balance-sheet position of balances. Contra accounts subtract inside their own group.
      *
      * @param  array<int, string>  $amounts  account_id => positive amount
-     * @param  \Illuminate\Support\Collection<int, Account>  $accounts  keyed by id
+     * @param  Collection<int, Account>  $accounts  keyed by id
      * @return array{assets:string, liabilities:string, equity:string, difference:string}
      */
     public static function summarize($accounts, array $amounts): array
@@ -72,7 +76,7 @@ class OpeningPositionService
     /** Fails when this branch + period already has any opening (either method, or the legacy page). */
     public static function ensureFree(int $companyId, int $branchId, int $periodId): void
     {
-        $existing = OpeningBalance::where(['company_id' => $companyId, 'branch_id' => $branchId, 'fiscal_period_id' => $periodId])->first();
+        $existing = OpeningBalance::where(['company_id' => $companyId, 'branch_id' => $branchId, 'fiscal_period_id' => $periodId])->whereNull('reversed_at')->first();
 
         if (! $existing) {
             return;
@@ -128,7 +132,7 @@ class OpeningPositionService
 
     /**
      * @param  array{company_id:int, branch_id:int, fiscal_period_id:int, posted_on:string, items:array<int, array<string,mixed>>}  $data
-     *   item: account_id, amount, description?, acquired_on?, useful_life_years?, accumulated?
+     *                                                                                                                                     item: account_id, amount, description?, acquired_on?, useful_life_years?, accumulated?
      */
     public function postModalAwal(array $data): OpeningBalance
     {
@@ -277,8 +281,60 @@ class OpeningPositionService
         ]);
 
         $opening->update(['journal_entry_id' => $entry->id]);
+        if ($method === self::MODAL_AWAL) {
+            app(FixedAssetService::class)->registerOpening($opening);
+        }
 
         return $opening->load('lines', 'journalEntry');
+    }
+
+    /**
+     * Cancel a modal-awal opening. The idempotency key is released so the same branch
+     * and year can be posted again. A saldo-neraca opening is not reversible from this menu.
+     *
+     * @param  array{company_id:int, reason:string, posted_on?:string, created_by?:int}  $data
+     */
+    public function reverseModal(OpeningBalance $opening, array $data): OpeningBalance
+    {
+        return DB::transaction(function () use ($opening, $data) {
+            $opening = OpeningBalance::where('company_id', $data['company_id'])->lockForUpdate()->findOrFail($opening->id);
+            if ($opening->method !== self::MODAL_AWAL) {
+                throw new InvalidArgumentException('Hanya setoran modal awal yang dibalik dari menu ini.');
+            }
+            if ($opening->reversed_at || $opening->status === 'reversed') {
+                throw new InvalidArgumentException('Setoran ini sudah dibalik.');
+            }
+
+            $postedOn = $data['posted_on'] ?? now()->toDateString();
+            if ($postedOn < $opening->posted_on->toDateString()) {
+                throw new InvalidArgumentException('Tanggal pembalikan tidak boleh sebelum tanggal cut-off.');
+            }
+            $period = Periods::openFor((int) $data['company_id'], $postedOn);
+            if (! $period) {
+                throw new InvalidArgumentException('Tidak ada tahun buku terbuka untuk tanggal pembalikan.');
+            }
+            app(FixedAssetService::class)->releaseOpening($opening);
+
+            $entry = JournalEntry::where('company_id', $data['company_id'])->findOrFail($opening->journal_entry_id);
+            $reversal = app(JournalReversalService::class)->reverse($entry, [
+                'posted_on' => $postedOn,
+                'fiscal_period_id' => $period->id,
+                'description' => 'Pembalikan setoran modal awal: '.$data['reason'],
+                'idempotency_key' => 'opening-reversal-'.$opening->id,
+                'created_by' => $data['created_by'] ?? null,
+            ]);
+            $suffix = ':reversed:'.$opening->id;
+            $entry->update(['status' => 'reversed', 'idempotency_key' => $entry->idempotency_key.$suffix]);
+            $opening->update([
+                'status' => 'reversed',
+                'reversal_reason' => $data['reason'],
+                'reversed_at' => now(),
+                'reversal_journal_entry_id' => $reversal->id,
+                'idempotency_key' => $opening->idempotency_key.$suffix,
+            ]);
+
+            return $opening->fresh();
+        });
     }
 
     private function lockBranch(array $data): void

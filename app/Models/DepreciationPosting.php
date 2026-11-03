@@ -11,10 +11,21 @@ class DepreciationPosting extends Model
 
     protected function casts(): array
     {
-        return ['period_on' => 'date', 'amount' => 'decimal:2'];
+        return ['posted_on' => 'date', 'amount' => 'decimal:2', 'reversed_at' => 'datetime'];
     }
 
-    public function asset(): BelongsTo { return $this->belongsTo(FixedAsset::class, 'fixed_asset_id'); }
-    public function schedule(): BelongsTo { return $this->belongsTo(DepreciationSchedule::class); }
-    public function journalEntry(): BelongsTo { return $this->belongsTo(JournalEntry::class); }
+    public function asset(): BelongsTo
+    {
+        return $this->belongsTo(FixedAsset::class, 'fixed_asset_id');
+    }
+
+    public function schedule(): BelongsTo
+    {
+        return $this->belongsTo(DepreciationSchedule::class);
+    }
+
+    public function journalEntry(): BelongsTo
+    {
+        return $this->belongsTo(JournalEntry::class);
+    }
 }

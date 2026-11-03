@@ -7,6 +7,7 @@ use App\Models\ExpensePayment;
 use App\Models\Receipt;
 use App\Support\Accounting\JournalSource;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -88,7 +89,7 @@ class LedgerService
      * account, so a paginated page can carry a correct running balance.
      *
      * @param  Collection<int, object>  $pageRows  rows from lines(), in display order
-     * @return array<int, string>  account_id => net before
+     * @return array<int, string> account_id => net before
      */
     public function netBefore(int $companyId, Collection $pageRows, ?int $branchId): array
     {
@@ -96,7 +97,7 @@ class LedgerService
         foreach ($pageRows->groupBy('account_id') as $accountId => $rows) {
             $first = $rows->first();
             // posted_on may come back as a datetime string; compare dates only so the line itself is never included.
-            $day = \Illuminate\Support\Carbon::parse($first->posted_on)->toDateString();
+            $day = Carbon::parse($first->posted_on)->toDateString();
             $net = DB::table('journal_lines as l')->join('journal_entries as e', 'e.id', '=', 'l.journal_entry_id')
                 ->where('e.company_id', $companyId)->where('l.account_id', $accountId)
                 ->when($branchId, fn ($q, $id) => $q->where('e.branch_id', $id))
@@ -153,7 +154,7 @@ class LedgerService
      * Counter accounts of each entry ("Akun Lawan"), e.g. "1111, 4101 +2".
      *
      * @param  Collection<int, object>  $rows
-     * @return array<int, array<int, string>>  entry_id => ordered list of "code" strings per line id
+     * @return array<int, array<int, string>> entry_id => ordered list of "code" strings per line id
      */
     public function counterAccounts(Collection $rows): array
     {
@@ -178,7 +179,7 @@ class LedgerService
      * Where the user can open the business document behind an entry (null when there is no page).
      *
      * @param  Collection<int, object>  $rows
-     * @return array<int, ?string>  line_id => url
+     * @return array<int, ?string> line_id => url
      */
     public function sourceUrls(Collection $rows): array
     {
@@ -192,6 +193,13 @@ class LedgerService
                 'expense' => "/transactions/expenses/{$row->source_id}",
                 'receipt' => isset($receipts[$row->source_id]) ? "/transactions/invoices/{$receipts[$row->source_id]}" : null,
                 'expense_payment' => isset($payments[$row->source_id]) ? "/transactions/expenses/{$payments[$row->source_id]}" : null,
+                'treasury' => $row->reference ? '/data/d-kasbank?search='.rawurlencode((string) $row->reference) : '/data/d-kasbank',
+                'manual' => $row->reference ? '/data/d-jm?search='.rawurlencode((string) $row->reference) : '/data/d-jm',
+                'opening' => '/data/d-modal',
+                'inventory' => $row->reference ? '/data/d-persediaan?search='.rawurlencode((string) $row->reference) : '/data/d-persediaan',
+                'asset' => $row->reference ? '/data/d-asset?search='.rawurlencode((string) $row->reference) : '/data/d-asset',
+                'depreciation' => $row->reference ? '/data/simulasi?search='.rawurlencode((string) $row->reference) : '/data/simulasi',
+                'import' => '/inputan/impor',
                 default => null,
             };
         }

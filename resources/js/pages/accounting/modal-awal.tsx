@@ -72,12 +72,15 @@ export default function ModalAwal({ accounts, branches, fiscalPeriods, openings,
         <>
             <Head title="Input Setoran Modal Awal" />
             <main className="mx-auto w-full max-w-[1200px] space-y-6 p-4 md:p-8">
-                <header>
+                <header className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
                     <p className="text-sm text-muted-foreground">Inputan Transaksi</p>
                     <h1 className="text-3xl font-semibold tracking-tight">Input Setoran Modal Awal</h1>
                     <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
                         Untuk bisnis yang sudah berjalan: daftar harta dan hutang pada tanggal cut-off. Modal awal pemilik = total harta dikurangi total hutang. Aset tetap menyimpan tanggal perolehan, umur, dan akumulasi penyusutan untuk register aset. Jangan dipakai bersamaan dengan Saldo Neraca di cabang yang sama.
                     </p>
+                    </div>
+                    <Button variant="outline" asChild><a href="/data/d-modal">EDIT DATA</a></Button>
                 </header>
 
                 <section className="grid gap-3 rounded-xl border bg-card p-5 sm:grid-cols-3">

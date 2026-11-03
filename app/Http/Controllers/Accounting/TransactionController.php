@@ -3,22 +3,22 @@
 namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
-use App\Models\Expense;
-use App\Models\Invoice;
-use App\Models\Product;
-use App\Models\TemplateOption;
-use App\Models\Account;
-use App\Models\Branch;
-use App\Models\Customer;
-use App\Models\FiscalPeriod;
-use App\Models\JournalEntry;
 use App\Http\Requests\Accounting\ExpenseRequest;
 use App\Http\Requests\Accounting\InvoiceRequest;
 use App\Http\Requests\Accounting\ReceiptRequest;
-use App\Services\Accounting\TransactionPostingService;
-use Illuminate\Http\RedirectResponse;
+use App\Models\Account;
+use App\Models\Branch;
+use App\Models\Customer;
+use App\Models\Expense;
+use App\Models\FiscalPeriod;
+use App\Models\Invoice;
+use App\Models\JournalEntry;
+use App\Models\Product;
+use App\Models\TemplateOption;
 use App\Services\Accounting\AttachmentService;
+use App\Services\Accounting\TransactionPostingService;
 use App\Support\Accounting\Periods;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -169,18 +169,6 @@ class TransactionController extends Controller
             'journalEntry' => $expense->journal_entry_id
                 ? JournalEntry::with('lines.account')->where('company_id', $expense->company_id)->find($expense->journal_entry_id)
                 : null,
-        ]);
-    }
-
-    public function receivables(Request $request)
-    {
-        $companyId = $request->user()?->company_id;
-
-        return Inertia::render('accounting/receivables', [
-            'invoices' => Invoice::query()->where('company_id', $companyId)->with(['customer', 'receiptAllocations'])->whereIn('status', ['unpaid', 'partial'])->latest('issued_on')->get(),
-            'accounts' => Account::query()->where('company_id', $companyId)->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']),
-            'branches' => Branch::query()->where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'fiscalPeriods' => FiscalPeriod::query()->where('company_id', $companyId)->where('status', 'open')->orderBy('starts_on')->get(['id', 'starts_on', 'ends_on']),
         ]);
     }
 

@@ -37,24 +37,34 @@ Prasyarat aktif: validasi Invoice sudah membatasi customer, cabang, periode, dan
 
 DoD: ACC-01..04, 14, 16, 21, 22 lulus; satu invoice mengalir ke semua laporan dan dashboard.
 
-## [~] Langkah 4: Beban, Kas/Bank, Piutang, Jurnal Manual (4.1 Beban selesai; 4.2 Kas/Bank, 4.3 Piutang, 4.4 Jurnal Manual + Modal Awal, 4.5 Laporan Piutang/Hutang belum)
+## [x] Langkah 4: Beban, Kas/Bank, Piutang, Jurnal Manual (4.1–4.5 selesai di server+UI; 4.3–4.5 sudah dicoba di browser)
 Spek: `03`, `04`, `05` (Piutang, Hutang).
 Input Beban + Data Beban; Input Pindah Saldo Kas/Bank (11 kategori, Dari/Ke dibatasi jenis) + Data Kas & Bank; Input Pelunasan Piutang (cabang mengikuti invoice, tidak melebihi sisa, idempoten) + Data Pelunasan; Input Jurnal Manual (2-6 baris) + Data Jurnal Manual; Data Modal Awal; Laporan Piutang (aging <=30 / 31-60 / >60); Laporan Daftar Hutang (multi-sumber + rekonsiliasi GL).
 
 DoD: ACC-05, 09; subledger AR/AP cocok dengan GL.
 
-## [ ] Langkah 5: Persediaan, Aset, D&A
-Input Persediaan (moving average per cabang, stok tidak boleh minus, aturan backdate: lihat DECISIONS-PENDING) + Data Persediaan + Laporan Persediaan (kartu stok, low-stock). Input Pembelian Asset + Data Asset + Simulasi & Output D&A (3 tabel, tetap di grup Data Transaksi) + Laporan Daftar Asset.
+## [x] Langkah 5: Persediaan, Aset, dan D&A (5.1 dan 5.2 selesai di server+UI dan dicoba di browser)
+Input Persediaan (moving average per cabang, stok tidak boleh minus, backdate ditolak) + Data Persediaan + Laporan Persediaan (kartu stok, low-stock). Input Pembelian Asset (garis lurus, mulai bulan berikut) + Data Asset + Simulasi & Output D&A (3 tabel, tetap di grup Data Transaksi) + Laporan Daftar Asset. Aset cut-off modal awal masuk register tanpa jurnal kedua.
 
 DoD: ACC-06, 07, 08; stok dan aset cocok GL.
 
-## [ ] Langkah 6: Import Penjualan dan Pajak
-Import xlsx/csv: template, default mapping, preview, validasi + dedupe di server, per No Order = satu invoice, riwayat dan batalkan batch, aman terhadap limit cPanel. Laporan Pajak (blok A-D, alokasi ke masa tertua; perlu review ADR-008).
+## [x] Langkah 6: Import Penjualan dan Pajak
 
-DoD: ACC-11, 12.
+### [x] 6.1 Import Penjualan
+Template CSV/XLSX, pratinjau, satu invoice per No Order, dedupe di server, pajak/ongkir/admin, HPP rata-rata bila SKU cocok, riwayat dan batal batch. Batas 2 MB dan 500 order.
+
+DoD: ACC-11, ACC-12. Terbukti `ImportSalesTest`.
+
+### [x] 6.2 Laporan Pajak
+Blok A-D, alokasi setoran ke masa tertua. Jatuh tempo di UI hanya perkiraan (ADR-008). Terbukti `TaxReportTest` (5 test); belum dicoba di browser.
 
 ## [ ] Langkah 7: Anggaran, Rasio, Dividen
-Input Anggaran (Qty x Tarif, 12 bulan, akun 4/5), Data, Rekap (struktur sama dengan LR), Kinerja (warna status, target 0 = N/A). Analisis Rasio: 19 rasio + health score + nilai rujukan editable. Bagi Hasil & Dividen satu halaman (total kepemilikan 100%).
+
+### [x] 7.1 Anggaran (Input, Data, Rekap, Kinerja)
+Terbukti `BudgetPlanTest` (7 test, ACC-18). Belum dicoba di browser.
+
+### [ ] 7.2 Analisis Rasio dan Bagi Hasil & Dividen
+Detail awal Langkah 7: Input Anggaran (Qty x Tarif, 12 bulan, akun 4/5), Data, Rekap (struktur sama dengan LR), Kinerja (warna status, target 0 = N/A). Analisis Rasio: 19 rasio + health score + nilai rujukan editable. Bagi Hasil & Dividen satu halaman (total kepemilikan 100%).
 
 DoD: ACC-18, 19, 20.
 

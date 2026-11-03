@@ -11,12 +11,17 @@ class ExpensePayment extends Model
 
     protected function casts(): array
     {
-        return ['amount' => 'decimal:2', 'paid_on' => 'date'];
+        return ['amount' => 'decimal:2', 'paid_on' => 'date', 'reversed_at' => 'datetime'];
     }
 
     public function expense(): BelongsTo
     {
         return $this->belongsTo(Expense::class);
+    }
+
+    public function treasuryTransaction(): BelongsTo
+    {
+        return $this->belongsTo(TreasuryTransaction::class);
     }
 
     public function cashAccount(): BelongsTo

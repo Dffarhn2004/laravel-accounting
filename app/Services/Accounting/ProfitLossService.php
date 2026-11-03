@@ -71,7 +71,7 @@ class ProfitLossService
      * @param  array<int, int>  $keys  ordered column keys
      * @return array{rows: array<int, array<string, mixed>>, summary: array<string, string>}
      */
-    private function assemble(int $companyId, array $data, array $keys, bool $showAll): array
+    public function assemble(int $companyId, array $data, array $keys, bool $showAll): array
     {
         $zero = array_fill(0, count($keys), '0.00');
         $accounts = Account::where('company_id', $companyId)->whereIn('type', ['income', 'expense'])->orderBy('code')->get(['id', 'code', 'name', 'type']);

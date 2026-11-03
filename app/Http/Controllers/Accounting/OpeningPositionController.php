@@ -38,7 +38,7 @@ class OpeningPositionController extends Controller
             'branches' => Branch::where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name']),
             'fiscalPeriods' => FiscalPeriod::where('company_id', $companyId)->where('status', 'open')->orderBy('starts_on')->get(['id', 'starts_on', 'ends_on']),
             // Every opening (any method) so the UI can show why a branch is locked.
-            'openings' => OpeningBalance::where('company_id', $companyId)->with('branch:id,name')->latest('posted_on')->get(['id', 'branch_id', 'fiscal_period_id', 'method', 'posted_on', 'journal_entry_id']),
+            'openings' => OpeningBalance::where('company_id', $companyId)->whereNull('reversed_at')->with('branch:id,name')->latest('posted_on')->get(['id', 'branch_id', 'fiscal_period_id', 'method', 'posted_on', 'journal_entry_id']),
             'method' => $method,
         ];
     }
@@ -76,7 +76,7 @@ class OpeningPositionController extends Controller
             'accounts' => $accounts,
             // Fixed-asset classes need acquisition info and carry a default useful life.
             'assetClasses' => AssetCategory::where('company_id', $companyId)->where('useful_life_years', '>', 0)->get(['asset_account_id', 'useful_life_years', 'accumulated_account_id']),
-            'recorded' => OpeningBalance::where(['company_id' => $companyId, 'method' => OpeningPositionService::MODAL_AWAL])
+            'recorded' => OpeningBalance::where(['company_id' => $companyId, 'method' => OpeningPositionService::MODAL_AWAL])->whereNull('reversed_at')
                 ->with(['branch:id,name', 'lines.account:id,code,name'])->latest('posted_on')->get(),
         ]);
     }

@@ -14,7 +14,7 @@ Date: 25 October 2026.
 | ADR-008 | Tax and accounting compliance  | OPEN            | Indonesian tax rates/withholding, tax rules, accounting standard and accountant sign-off |
 | ADR-009 | Master CoA                     | PROPOSED        | Seed reference-style categories while allowing customization                             |
 | ADR-010 | Posted transaction corrections | PROPOSED        | Reversal and repost rather than destructive deletion                                     |
-| ADR-011 | AP allocation                  | OPEN            | Reference FIFO per account vs explicit bill matching                                     |
+| ADR-011 | AP allocation                  | CONFIRMED       | FIFO per account (2026-11-03). Oldest open expense on that payable is settled first; no bill picker. |
 | ADR-012 | Interbranch transfers          | OPEN            | Clearing accounts and elimination rules                                                  |
 | ADR-013 | License                        | OPEN            | Reference trial 20 & activation versus subscription, or no license                       |
 | ADR-014 | Exports                        | PROPOSED        | CSV, XLSX and printable PDF using common financial calculations                          |

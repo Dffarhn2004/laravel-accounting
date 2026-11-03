@@ -112,7 +112,7 @@ class GeneralLedgerReportsTest extends TestCase
 
         $manual = collect($p['rows'])->firstWhere('source_kind', 'manual');
         $this->assertSame('JM-X', $manual['reference']);
-        $this->assertNull($manual['source_url'], 'no page to open for a manual journal');
+        $this->assertSame('/data/d-jm?search=JM-X', $manual['source_url']);
     }
 
     public function test_running_balance_is_on_the_normal_side_and_continues_across_pages(): void

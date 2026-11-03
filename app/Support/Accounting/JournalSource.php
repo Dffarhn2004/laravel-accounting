@@ -19,6 +19,7 @@ final class JournalSource
         'treasury' => 'Kas & Bank',
         'opening' => 'Saldo / Modal Awal',
         'manual' => 'Jurnal Manual',
+        'import' => 'Impor Penjualan',
         'reversal' => 'Pembalikan',
     ];
 
